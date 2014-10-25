@@ -31,6 +31,8 @@ function UUID() {
  * - `heartbeat max`: Maximum heartbeat timeout.
  * - `election min`: Minimum election timeout.
  * - `election max`: Maximum election timeout.
+ * - `threshold`: Threshold when the heartbeat RTT is close to the election
+ *   timeout.
  *
  * @constructor
  * @param {Function} read Method will be called to receive a callback.
@@ -53,7 +55,13 @@ function Node(read, write, options) {
     max: Tick.parse(options['heartbeat max'] || '300 ms')
   };
 
-  this.id = options.id || UUID();
+  this.votes = {
+    for: null,
+    granted: 0
+  };
+
+  this.threshold = options.threshold || 0.8;
+  this.name = options.name || UUID();
   this.timers = new Tick();
   this._write = write;
 
@@ -61,7 +69,8 @@ function Node(read, write, options) {
   // 5.2: When a server starts, it's always started as Follower and it will
   // remain in this state until receive a message from a Leader or Candidate.
   //
-  this.state = Node.FOLLOWER;
+  this.state = Node.FOLLOWER; // Our current state.
+  this.leader = null;         // Leader in our cluster.
   this.term = 0;
 
   this.initialize();
@@ -82,6 +91,7 @@ Node.prototype.constructor = Node;
 Node.LEADER    = 1;
 Node.CANDIDATE = 2;
 Node.FOLLOWER  = 3;
+Node.STOPPED   = 4;
 
 /**
  * Initialize the node.
@@ -89,6 +99,14 @@ Node.FOLLOWER  = 3;
  * @api private
  */
 Node.prototype.initialize = function initialize() {
+  this.on('term change', function change() {
+    //
+    // Reset our vote as we're starting a new term. Votes only last one term.
+    //
+    this.votes.for = null;
+    this.votes.granted = 0;
+  });
+
   this.on('RPC', function incoming(data) {
     if ('object' !== typeof data) return; /* Invalid data structure, G.T.F.O. */
 
@@ -102,25 +120,70 @@ Node.prototype.initialize = function initialize() {
          Node.CANDIDATE === this.state
       && Node.LEADER === this.state
     ) {
-      if (data.term >= this.term) this.state = Node.FOLLOWER;
+      if (data.term >= this.term) {
+        this.change({
+          state: Node.FOLLOWER,
+          term: data.term
+        });
+      }
       else return; /* We need to ignore the RPC as it's in an incorrect state */
     }
 
     switch (data.type) {
       case 'heartbeat':
         if (Node.LEADER === data.state) {
-          this.heartbeat(data.payload);
+          this.heartbeat(data.data);
         }
       break;
 
+      //
+      // A node asked us to vote on them. We can only vote to them if they
+      // represent a higher term (and last log term, last log index).
+      //
       case 'vote':
-        this.vote(data);
+      break;
+
+      //
+      // A new incoming vote.
+      //
+      case 'voted':
+        //
+        // Check if we've received the minimal amount of votes required for this
+        // current voting round to be considered valid
+        //
+        if (this.votes.granted === (this.nodes.length / 2) + 1) {
+          this.change({
+            leader: this.name,
+            state: Node.LEADER
+          });
+        }
       break;
 
       case 'rpc':
       break;
     }
   });
+};
+
+/**
+ * Process a change in the node.
+ *
+ * @param {Object} changed Data that is changed.
+ * @returns {Node}
+ * @api private
+ */
+Node.prototype.change = function change(changed) {
+  var changes = ['term', 'leader', 'state']
+    , i = 0;
+
+  for (; i < changes.length; i++) {
+    if (changes[i] in changed && changed[changes[i]] !== this[changes[i]]) {
+      this[changes[i]] = changed[changes[i]];
+      this.emit(changes[i] +' change');
+    }
+  }
+
+  return this;
 };
 
 /**
@@ -140,7 +203,14 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     return this;
   }
 
-  this.timers.setTimeout('heartbeat', this.promote, duration);
+  this.timers.setTimeout('heartbeat', function () {
+    if (Node.LEADER !== this.state) return this.promote();
+
+    //
+    // We're the LEADER so we should be broadcasting.
+    //
+    this.broadcast('heartbeat');
+  }, duration);
 
   return this;
 };
@@ -171,26 +241,20 @@ Node.prototype.timeout = function timeout(which) {
 Node.prototype.promote = function promote() {
   if (Node.CANDIDATE === this.state) return this;
 
-  this.state = Node.CANDIDATE;  // We're now a candidate,
-  this.term++;                  // but only for this term.
+  this.change({
+    state: Node.CANDIDATE,  // We're now a candidate,
+    term: this.term + 1,    // but only for this term.
+    leader: ''              // We no longer have a leader.
+  });
 
   //
   // Candidates are always biased and vote for them selfs first before sending
   // out a voting request to all other nodes in the cluster.
   //
-  var votes = 1;
+  this.votes.for = this.name;
+  this.votes.granted = 1;
+  this.broadcast('vote');
 
-  return this;
-};
-
-/**
- * A vote has come in, and we need to return our decision.
- *
- * @param {Object} data Details about the node that wants our vote.
- * @returns {Node}
- * @api public
- */
-Node.prototype.vote = function vote(data) {
   return this;
 };
 
@@ -198,18 +262,42 @@ Node.prototype.vote = function vote(data) {
  * Write out a message.
  *
  * @param {String} type Message type we're trying to send.
- * @param {Mixed} payload Data to be transfered.
+ * @param {Mixed} data Data to be transfered.
  * @returns {Boolean} Successful write.
  * @api public
  */
-Node.prototype.write = function write(type, payload, broadcast) {
-  return this._write({
-    state: this.state,    // So people know if we're a leader, candidate or follower
-    term: this.term,      // Our current term so we can find mis matches
+Node.prototype.write = function write(type, data) {
+  return this._write(this.packet(type, data));
+};
 
-    payload: payload,
-    type: type
-  });
+/**
+ * Broadcast a message.
+ *
+ * @param {String} type Message type we're trying to send.
+ * @param {Mixed} data Data to be transfered.
+ * @returns {Boolean} Successful write.
+ * @api public
+ */
+Node.prototype.broadcast = function broadcast(type, data) {
+  var packet = this.packet(type, data);
+};
+
+/**
+ * Wrap the outgoing messages in an object with additional required data.
+ *
+ * @param {String} type Message type we're trying to send.
+ * @param {Mixed} data Data to be transfered.
+ * @returns {Object} Packet.
+ * @api private
+ */
+Node.prototype.packet = function packet(type, data) {
+  return {
+    state: this.state,  // So you know if we're a leader, candidate or follower
+    term:  this.term,   // Our current term so we can find mis matches
+    name:  this.name,   // Name of the sender.
+    data:  data,        // Custom data we send.
+    type:  type         // Message type.
+  };
 };
 
 /**
