@@ -196,7 +196,7 @@ Node.prototype.initialize = function initialize() {
         // Check if we've received the minimal amount of votes required for this
         // current voting round to be considered valid
         //
-        if (this.votes.granted === this.quorum()) {
+        if (this.votes.granted >= this.quorum()) {
           this.change({
             leader: this.name,
             state: Node.LEADER
@@ -218,7 +218,7 @@ Node.prototype.initialize = function initialize() {
  * @api private
  */
 Node.prototype.quorum = function quorum() {
-  return (this.nodes.length / 2) + 1;
+  return Math.ceil(this.nodes.length / 2) + 1;
 };
 
 /**
