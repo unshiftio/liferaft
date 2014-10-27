@@ -4,7 +4,10 @@
   "description": "Consensus protocol based on raft, but only for saving lifes.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --reporter spec --ui bdd test.js",
+    "watch": "mocha --watch --reporter spec --ui bdd test.js",
+    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- --reporter spec --ui bdd test.js",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- --reporter spec --ui bdd test.js"
   },
   "repository": {
     "type": "git",
@@ -23,6 +26,14 @@
   "homepage": "https://github.com/unshiftio/liferaft",
   "dependencies": {
     "emits": "1.0.x",
-    "eventemitter3": "0.1.x"
+    "eventemitter3": "0.1.x",
+    "extendible": "0.1.x",
+    "tick-tock": "0.0.x"
+  },
+  "devDependencies": {
+    "assume": "0.0.x",
+    "istanbul": "0.3.x",
+    "mocha": "2.0.x",
+    "pre-commit": "0.0.x"
   }
 }

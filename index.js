@@ -71,13 +71,14 @@ function Node(read, write, options) {
   //
   this.state = Node.FOLLOWER; // Our current state.
   this.leader = null;         // Leader in our cluster.
-  this.term = 0;
+  this.term = 0;              // Our current term.
 
   this.initialize();
 
   read(this.emits('RPC'));
 }
 
+Node.extend = require('extendable');
 Node.prototype = new EventEmitter();
 Node.prototype.emits = require('emits');
 Node.prototype.constructor = Node;
@@ -88,10 +89,10 @@ Node.prototype.constructor = Node;
  * @type {Number}
  * @private
  */
-Node.LEADER    = 1;
-Node.CANDIDATE = 2;
-Node.FOLLOWER  = 3;
-Node.STOPPED   = 4;
+Node.LEADER    = 1;   // We're selected as leader process.
+Node.CANDIDATE = 2;   // We want to be promoted to leader.
+Node.FOLLOWER  = 3;   // We're just following a leader.
+Node.STOPPED   = 4;   // Assume we're dead.
 
 /**
  * Initialize the node.
