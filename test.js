@@ -223,6 +223,38 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#promote', function () {
+    it('changes state to candidate', function () {
+      assume(raft.state).does.not.equal(Raft.CANDIDATE);
+
+      raft.promote();
+      assume(raft.state).equals(Raft.CANDIDATE);
+    });
+
+    it('resets the leader', function () {
+      raft.leader = raft.name;
+      raft.promote();
+      assume(raft.leader).equals('');
+    });
+
+    it('increments term', function () {
+      raft.term = 40;
+      raft.promote();
+
+      assume(raft.term).equals(41);
+    });
+
+    it('votes for self', function () {
+      assume(raft.votes.for).equals(null);
+      assume(raft.votes.granted).equals(0);
+
+      raft.promote();
+
+      assume(raft.votes.for).equals(raft.name);
+      assume(raft.votes.granted).equals(1);
+    });
+  });
+
   describe('event', function () {
     describe('term change', function () {
       it('resets the votes', function (next) {
