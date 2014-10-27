@@ -144,7 +144,7 @@ Node.prototype.initialize = function initialize() {
         // If the request is coming from an old term we should deny it.
         //
         if (data.term < this.term) {
-          return this.write('vote', { term: this.term, accepted: false });
+          return this.write('vote', { accepted: false });
         }
 
         //
@@ -153,7 +153,7 @@ Node.prototype.initialize = function initialize() {
         //
         if (data.term > this.term) this.change({ term: data.term });
         else if (this.votes.for && this.votes.for !== data.name) {
-          return this.write('vote', { term: this.term, accepted: false });
+          return this.write('vote', { accepted: false });
         }
 
         //
@@ -167,7 +167,7 @@ Node.prototype.initialize = function initialize() {
         // met.
         //
         this.votes.for = data.name;
-        this.write('vote', { term: this.term, accepted: true });
+        this.write('vote', { accepted: true });
       break;
 
       //
@@ -175,10 +175,28 @@ Node.prototype.initialize = function initialize() {
       //
       case 'voted':
         //
+        // Only accepts votes while we're still in a CANDIDATE state.
+        //
+        if (Node.CANDIDATE !== this.state) return;
+
+        //
+        // Increment our received votes when our voting request has been
+        // accepted by the node that received the data.
+        //
+        if (data.payload.accepted && data.term === this.term) {
+          this.votes.granted++;
+        }
+
+        //
+        // Again, update our term if it's out sync.
+        //
+        if (data.term > this.term) this.change({ term: data.term });
+
+        //
         // Check if we've received the minimal amount of votes required for this
         // current voting round to be considered valid
         //
-        if (this.votes.granted === (this.nodes.length / 2) + 1) {
+        if (this.votes.granted === this.quorum()) {
           this.change({
             leader: this.name,
             state: Node.LEADER
@@ -190,6 +208,17 @@ Node.prototype.initialize = function initialize() {
       break;
     }
   });
+};
+
+/**
+ * The minimum amount of votes we need to receive in order for a voting round to
+ * be considered valid.
+ *
+ * @returns {Number}
+ * @api private
+ */
+Node.prototype.quorum = function quorum() {
+  return (this.nodes.length / 2) + 1;
 };
 
 /**
