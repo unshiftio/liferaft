@@ -49,8 +49,8 @@ function Node(options) {
   };
 
   this.beat = {
-    min: Tick.parse(options['heartbeat min'] || '150 ms'),
-    max: Tick.parse(options['heartbeat max'] || '300 ms')
+    min: Tick.parse(options['heartbeat min'] || '50 ms'),
+    max: Tick.parse(options['heartbeat max'] || '70 ms')
   };
 
   this.votes = {
@@ -140,6 +140,34 @@ Node.prototype.initialize = function initialize() {
       // represent a higher term (and last log term, last log index).
       //
       case 'vote':
+        //
+        // If the request is coming from an old term we should deny it.
+        //
+        if (data.term < this.term) {
+          return this.write('vote', { term: this.term, accepted: false });
+        }
+
+        //
+        // The term of the vote is bigger then ours so we need to update it. If
+        // it's the same and we already voted, we need to deny the vote.
+        //
+        if (data.term > this.term) this.change({ term: data.term });
+        else if (this.votes.for && this.votes.for !== data.name) {
+          return this.write('vote', { term: this.term, accepted: false });
+        }
+
+        //
+        // If we maintain a log, check if the candidates log is as up to date as
+        // ours.
+        //
+
+        //
+        // We've made our decision, we haven't voted for this term yet and this
+        // candidate came in first so it gets our vote as all requirements are
+        // met.
+        //
+        this.votes.for = data.name;
+        this.write('vote', { term: this.term, accepted: true });
       break;
 
       //
