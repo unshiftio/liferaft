@@ -60,7 +60,7 @@ function Node(options) {
 
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
-  this.timers = new Tick();
+  this.timers = new Tick(this);
 
   //
   // 5.2: When a server starts, it's always started as Follower and it will
@@ -175,6 +175,8 @@ Node.prototype.change = function change(changed) {
   var changes = ['term', 'leader', 'state']
     , i = 0;
 
+  if (!changed) return this;
+
   for (; i < changes.length; i++) {
     if (changes[i] in changed && changed[changes[i]] !== this[changes[i]]) {
       this[changes[i]] = changed[changes[i]];
@@ -204,6 +206,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
 
   this.timers.setTimeout('heartbeat', function () {
     if (Node.LEADER !== this.state) {
+      this.emit('heartbeat timeout');
       return this.promote();
     }
 
@@ -224,7 +227,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
  * @api public
  */
 Node.prototype.timeout = function timeout(which) {
-  var times = this[which] || this.beat;
+  var times = this[which];
 
   return Math.floor(Math.random() * (times.max - times.min + 1) + times.min);
 };

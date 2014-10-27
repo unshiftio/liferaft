@@ -140,4 +140,105 @@ describe('liferaft', function () {
       assume(listeners(raft)).equals(0);
     });
   });
+
+  describe('#change', function () {
+    it('updates the term and emits a change', function (next) {
+      raft.once('term change', function () {
+        assume(raft.term).equals(3);
+        next();
+      });
+
+      raft.change({ term: 3 });
+    });
+
+    it('updates the leader and emits a change', function (next) {
+      raft.once('leader change', function () {
+        assume(raft.leader).equals('foo');
+        next();
+      });
+
+      raft.change({ leader: 'foo' });
+    });
+
+    it('updates the state and emits a change', function (next) {
+      raft.once('state change', function () {
+        assume(raft.state).equals(Raft.LEADER);
+        next();
+      });
+
+      raft.change({ state: Raft.LEADER });
+    });
+
+    it('returns this', function () {
+      assume(raft.change()).equals(raft);
+    });
+
+    it('only a emits change if something changed', function () {
+      function heded() { throw new Error('I failed'); }
+
+      raft.once('term change', heded)
+          .once('state change', heded)
+          .once('leader change', heded);
+
+      raft.change({
+        term: raft.term,
+        state: raft.state,
+        leader: raft.leader
+      });
+    });
+  });
+
+  describe('heartbeat', function () {
+    it('increments the heartbeat if set before', function (next) {
+      raft = new Raft({
+        'heartbeat min': 100,
+        'heartbeat max': 110
+      });
+
+      raft.heartbeat();
+      setTimeout(function () {
+        raft.heartbeat();
+
+        setTimeout(next, 90);
+      }, 90);
+    });
+
+    it('emits a heartbeat timeout', function (next) {
+      raft.once('heartbeat timeout', next);
+      raft.heartbeat();
+    });
+
+    it('promotes to candidate', function (next) {
+      raft.once('state change', function () {
+        assume(raft.state).equals(Raft.CANDIDATE);
+        next();
+      });
+
+      raft.heartbeat();
+    });
+
+    it('returns this', function () {
+      assume(raft.heartbeat()).equals(raft);
+      assume(raft.heartbeat()).equals(raft);
+    });
+  });
+
+  describe('event', function () {
+    describe('term change', function () {
+      it('resets the votes', function (next) {
+        raft.on('term change', function () {
+          assume(raft.term).equals(2);
+          assume(raft.votes.granted).equals(0);
+          assume(!raft.votes.for).is.true();
+
+          next();
+        });
+
+        raft.votes.for = raft.name;
+        raft.votes.granted++;
+
+        raft.change({ term: 2 });
+      });
+    });
+  });
 });
