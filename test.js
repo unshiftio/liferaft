@@ -25,6 +25,34 @@ describe('liferaft', function () {
     assume(Raft(function () {})).is.instanceOf(Raft);
   });
 
+  describe('#timeout', function () {
+    it('generates a random timeout between min/max', function () {
+      var timeouts = []
+        , times = 100
+        , same = {};
+
+      for (var i = 0; i < times; i++) {
+        timeouts.push(raft.timeout('election'));
+      }
+
+      timeouts.forEach(function (timeout, i) {
+        assume(timeout).is.a('number');
+        assume(timeout).is.least(raft.election.min);
+        assume(timeout).is.most(raft.election.max);
+
+        same[timeout] = same[timeout] || 0;
+        same[timeout]++;
+      });
+
+      //
+      // Ensure that our random generation isn't to damn sucky and can be
+      // considered random enough to be workable. This isn't a hard requirement
+      // of Raft but still something we need to assert.
+      //
+      assume(Object.keys(same).length).is.above(70);
+    });
+  });
+
   describe('#end', function () {
     function listeners(ee) {
       var amount = 0;

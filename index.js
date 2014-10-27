@@ -35,13 +35,11 @@ function UUID() {
  *   timeout.
  *
  * @constructor
- * @param {Function} read Method will be called to receive a callback.
- * @param {Function} write Called when the node needs to communicate.
  * @param {Object} options Node configuration.
  * @api public
  */
-function Node(read, write, options) {
-  if (!(this instanceof Node)) return new Node(read, write, options);
+function Node(options) {
+  if (!(this instanceof Node)) return new Node(options);
 
   options = options || {};
 
@@ -56,14 +54,13 @@ function Node(read, write, options) {
   };
 
   this.votes = {
-    for: null,
-    granted: 0
+    for: null,                // Who did we vote for in this current term.
+    granted: 0                // How many votes we're granted to us.
   };
 
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
   this.timers = new Tick();
-  this._write = write;
 
   //
   // 5.2: When a server starts, it's always started as Follower and it will
@@ -74,10 +71,11 @@ function Node(read, write, options) {
   this.term = 0;              // Our current term.
 
   this.initialize();
-
-  read(this.emits('RPC'));
 }
 
+//
+// Add some sugar and spice and everything nice. Oh, and also inheritance.
+//
 Node.extend = require('extendable');
 Node.prototype = new EventEmitter();
 Node.prototype.emits = require('emits');
@@ -108,7 +106,7 @@ Node.prototype.initialize = function initialize() {
     this.votes.granted = 0;
   });
 
-  this.on('RPC', function incoming(data) {
+  this.on('data', function incoming(data) {
     if ('object' !== typeof data) return; /* Invalid data structure, G.T.F.O. */
 
     //
@@ -226,10 +224,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
 Node.prototype.timeout = function timeout(which) {
   var times = this[which] || this.beat;
 
-  return Math.min(
-    Math.round((Math.random() * 1) * times.min),
-    times.max
-  );
+  return Math.floor(Math.random() * (times.max - times.min + 1) + times.min);
 };
 
 /**
@@ -260,15 +255,26 @@ Node.prototype.promote = function promote() {
 };
 
 /**
- * Write out a message.
+ * While we don't really adapt the Stream interface here from node, we still
+ * want to follow it's API signature. So we assume that the `write` method will
+ * return a boolean indicating if the packet has been written.
  *
- * @param {String} type Message type we're trying to send.
- * @param {Mixed} data Data to be transfered.
- * @returns {Boolean} Successful write.
+ * @param {Object} packet The data that needs to be written.
+ * @returns {Boolean} Indication that the message was written.
  * @api public
  */
-Node.prototype.write = function write(type, data) {
-  return this._write(this.packet(type, data));
+Node.prototype.write = function write(packet) {
+  return false;
+};
+
+/**
+ * Read and process an incoming data packet.
+ *
+ * @returns {Boolean} Did we read the message.
+ * @api public
+ */
+Node.prototype.read = function read(packet) {
+  return this.emit('data', packet);
 };
 
 /**
