@@ -6,7 +6,7 @@ describe('liferaft', function () {
     , raft;
 
   beforeEach(function each() {
-    raft = new Raft(function () {}, function () {});
+    raft = new Raft();
   });
 
   afterEach(function each() {
@@ -21,8 +21,47 @@ describe('liferaft', function () {
     assume(Raft.extend).is.a('function');
   });
 
-  it('can be constructed without `new`', function () {
-    assume(Raft(function () {})).is.instanceOf(Raft);
+  describe('initialization', function () {
+    it('can be constructed without `new`', function () {
+      assume(Raft()).is.instanceOf(Raft);
+    });
+
+    it('accepts strings for election and heartbeat', function () {
+      raft = new Raft({
+        'election min': '100 ms',
+        'election max': '150 ms',
+        'heartbeat min': '400 ms',
+        'heartbeat max': '600 ms'
+      });
+
+      assume(raft.beat.max).equals(600);
+      assume(raft.beat.min).equals(400);
+      assume(raft.election.max).equals(150);
+      assume(raft.election.min).equals(100);
+
+      raft.end();
+      raft = new Raft({
+        'election min': 100,
+        'election max': 150,
+        'heartbeat min': 400,
+        'heartbeat max': 600
+      });
+
+      assume(raft.beat.max).equals(600);
+      assume(raft.beat.min).equals(400);
+      assume(raft.election.max).equals(150);
+      assume(raft.election.min).equals(100);
+    });
+
+    it('sets a unique name by default', function () {
+      assume(raft.name).does.not.equal((new Raft()).name);
+    });
+
+    it('can set a custom name', function () {
+      raft = new Raft({ name: 'foo' });
+
+      assume(raft.name).equals('foo');
+    });
   });
 
   describe('#timeout', function () {
@@ -50,6 +89,26 @@ describe('liferaft', function () {
       // of Raft but still something we need to assert.
       //
       assume(Object.keys(same).length).is.above(70);
+    });
+
+    it('uses user supplied timeouts', function () {
+      var raft = new Raft({
+        'election min': '300ms',
+        'election max': '1s'
+      });
+
+      var timeouts = []
+        , times = 100;
+
+      for (var i = 0; i < times; i++) {
+        timeouts.push(raft.timeout('election'));
+      }
+
+      timeouts.forEach(function (timeout, i) {
+        assume(timeout).is.a('number');
+        assume(timeout).is.least(300);
+        assume(timeout).is.most(1000);
+      });
     });
   });
 

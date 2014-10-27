@@ -203,7 +203,9 @@ Node.prototype.heartbeat = function heartbeat(duration) {
   }
 
   this.timers.setTimeout('heartbeat', function () {
-    if (Node.LEADER !== this.state) return this.promote();
+    if (Node.LEADER !== this.state) {
+      return this.promote();
+    }
 
     //
     // We're the LEADER so we should be broadcasting.
