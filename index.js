@@ -144,6 +144,7 @@ Node.prototype.initialize = function initialize() {
         // If the request is coming from an old term we should deny it.
         //
         if (data.term < this.term) {
+          this.emit('vote', data, false);
           return this.write('vote', { accepted: false });
         }
 
@@ -153,6 +154,7 @@ Node.prototype.initialize = function initialize() {
         //
         if (data.term > this.term) this.change({ term: data.term });
         else if (this.votes.for && this.votes.for !== data.name) {
+          this.emit('vote', data, false);
           return this.write('vote', { accepted: false });
         }
 
@@ -167,6 +169,7 @@ Node.prototype.initialize = function initialize() {
         // met.
         //
         this.votes.for = data.name;
+        this.emit('vote', data, true);
         this.write('vote', { accepted: true });
       break;
 
@@ -230,14 +233,18 @@ Node.prototype.quorum = function quorum() {
  */
 Node.prototype.change = function change(changed) {
   var changes = ['term', 'leader', 'state']
+    , currently, previously
     , i = 0;
 
   if (!changed) return this;
 
   for (; i < changes.length; i++) {
     if (changes[i] in changed && changed[changes[i]] !== this[changes[i]]) {
-      this[changes[i]] = changed[changes[i]];
-      this.emit(changes[i] +' change');
+      currently = changed[changes[i]];
+      previously = this[changes[i]];
+
+      this[changes[i]] = currently;
+      this.emit(changes[i] +' change', currently, previously);
     }
   }
 
