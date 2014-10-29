@@ -49,6 +49,8 @@ start another re-election.
 The `liferaft` module is an `EventEmitter` at it's core and is quite chatty
 about the events it emits.
 
+Event               | Description
+--------------------|------------------------------------------------------
 `term change`       | The term has changed.
 `leader change`     | We're now following a newly elected leader.
 `state change`      | Our state/role changed.
