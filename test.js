@@ -279,16 +279,34 @@ describe('liferaft', function () {
   });
 
   describe('#quorum', function () {
+    it('needs 7 votes in a cluster of 11', function () {
+      raft.nodes.push(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+
+      assume(raft.quorum(7)).is.true();
+      assume(raft.quorum(5)).is.false();
+    });
+
+    it('return false when there are no nodes', function () {
+      assume(raft.quorum(999)).is.false();
+
+      raft.nodes.push(1, 2, 3, 4, 5);
+      assume(raft.quorum(0)).is.false();
+      assume(raft.quorum(50)).is.true();
+      assume(raft.quorum(5)).is.true();
+    });
+  });
+
+  describe('#majority', function () {
     it('generates an int', function () {
       for (var i = 0; i < 13; i++) {
         raft.nodes.push(i);
-        assume(raft.quorum() % 1 === 0).is.true();
+        assume(raft.majority() % 1 === 0).is.true();
       }
     });
 
     it('needs 7 votes in a cluster of 11', function () {
       raft.nodes.push(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-      assume(raft.quorum()).equals(7);
+      assume(raft.majority()).equals(7);
     });
   });
 
@@ -369,7 +387,7 @@ describe('liferaft', function () {
           type: 'voted'
         });
 
-        assume(raft.votes.granted).equals(2);
+        assume(raft.votes.granted).equals(1);
         assume(raft.state).equals(Raft.CANDIDATE);
       });
 
@@ -381,8 +399,12 @@ describe('liferaft', function () {
         raft.nodes.push(1, 2, 3, 4, 5);
         raft.promote();
 
-        raft.once('state changes', function (currently, previously) {
-          assume(raft.state).equals(Raft.CANDIDATE);
+        raft.once('state change', function (currently, previously) {
+          assume(previously).equals(Raft.CANDIDATE);
+          assume(raft.state).equals(Raft.LEADER);
+          assume(currently).equals(Raft.LEADER);
+
+          next();
         });
 
         for (var i = 0; i < 4; i++) {

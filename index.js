@@ -242,7 +242,7 @@ Node.prototype.initialize = function initialize(options) {
         // Check if we've received the minimal amount of votes required for this
         // current voting round to be considered valid
         //
-        if (this.votes.granted >= this.quorum()) {
+        if (this.quorum(this.votes.granted)) {
           this.change({ leader: this.name, state: Node.LEADER });
           // @TODO broadcast start heartbeat.
         }
@@ -270,13 +270,25 @@ Node.prototype.initialize = function initialize(options) {
 };
 
 /**
- * The minimum amount of votes we need to receive in order for a voting round to
- * be considered valid.
+ * Check if we've reached our quorum (a.k.a. minimum amount of votes requires
+ * for a voting round to be considered valid) for the given amount of votes.
+ *
+ * @param {Number} responses Amount of responses received.
+ * @returns {Boolean}
+ * @api private
+ */
+Node.prototype.quorum = function quorum(responses) {
+  if (!this.nodes.length || !responses) return false;
+  return responses >= this.majority();
+};
+
+/**
+ * The majority required to reach our the quorum.
  *
  * @returns {Number}
  * @api private
  */
-Node.prototype.quorum = function quorum() {
+Node.prototype.majority = function majority() {
   return Math.ceil(this.nodes.length / 2) + 1;
 };
 
