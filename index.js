@@ -357,9 +357,8 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     }
 
     //
-    // We're the LEADER so we should be broadcasting.
+    // @TODO We're the LEADER so we should be broadcasting.
     //
-    this.broadcast('heartbeat');
   }, duration);
 
   return this;
@@ -410,18 +409,6 @@ Node.prototype.promote = function promote() {
   this.timers.setTimeout('election', this.promote, this.timeout('election'));
 
   return this;
-};
-
-/**
- * Broadcast a message.
- *
- * @param {String} type Message type we're trying to send.
- * @param {Mixed} data Data to be transfered.
- * @returns {Boolean} Successful write.
- * @api public
- */
-Node.prototype.broadcast = function broadcast(type, data) {
-  var packet = this.packet(type, data);
 };
 
 /**
