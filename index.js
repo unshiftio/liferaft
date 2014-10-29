@@ -61,6 +61,7 @@ function Node(options) {
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
   this.timers = new Tick(this);
+  this.nodes = [];
 
   //
   // Raft §5.2:
@@ -162,13 +163,15 @@ Node.prototype.initialize = function initialize() {
       this.change({ state: Node.FOLLOWER, leader: packet.leader });
     }
 
-    switch (packet.type) {
-      case 'heartbeat':
-        if (Node.LEADER === packet.state) {
-          this.heartbeat(packet.packet);
-        }
-      break;
+    //
+    // Always when we receive an message from the Leader we need to reset our
+    // heartbeat.
+    //
+    if (Node.LEADER === packet.state) {
+      this.heartbeat();
+    }
 
+    switch (packet.type) {
       //
       // Raft §5.2:
       // Raft §5.4:
@@ -243,6 +246,13 @@ Node.prototype.initialize = function initialize() {
       break;
     }
   });
+
+  //
+  // The node is now listening to events so we can start our heartbeat timeout.
+  // So that if we don't hear anything from a leader we can promote our selfs to
+  // a candidate state.
+  //
+  this.heartbeat();
 };
 
 /**
