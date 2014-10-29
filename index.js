@@ -145,7 +145,7 @@ Node.prototype.initialize = function initialize() {
         //
         if (data.term < this.term) {
           this.emit('vote', data, false);
-          return this.write('vote', { accepted: false });
+          return this.write('vote', { granted: false });
         }
 
         //
@@ -155,7 +155,7 @@ Node.prototype.initialize = function initialize() {
         if (data.term > this.term) this.change({ term: data.term });
         else if (this.votes.for && this.votes.for !== data.name) {
           this.emit('vote', data, false);
-          return this.write('vote', { accepted: false });
+          return this.write('vote', { granted: false });
         }
 
         //
@@ -170,7 +170,7 @@ Node.prototype.initialize = function initialize() {
         //
         this.votes.for = data.name;
         this.emit('vote', data, true);
-        this.write('vote', { accepted: true });
+        this.write('vote', { granted: true });
       break;
 
       //
@@ -184,9 +184,9 @@ Node.prototype.initialize = function initialize() {
 
         //
         // Increment our received votes when our voting request has been
-        // accepted by the node that received the data.
+        // granted by the node that received the data.
         //
-        if (data.payload.accepted && data.term === this.term) {
+        if (data.payload.granted && data.term === this.term) {
           this.votes.granted++;
         }
 
