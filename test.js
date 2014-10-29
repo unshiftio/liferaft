@@ -256,6 +256,28 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#packet', function () {
+    it('wraps the object with common but required data', function () {
+      var obj = raft.packet('vote', 'data packet');
+
+      assume(obj).is.a('object');
+
+      assume(obj.state).is.a('number');
+      assume(obj.state).equals(Raft.FOLLOWER);
+
+      assume(obj.term).is.a('number');
+      assume(obj.term).equals(raft.term);
+
+      assume(obj.name).is.a('string');
+      assume(obj.name).equals(raft.name);
+
+      assume(obj.leader).equals(raft.leader);
+
+      assume(obj.type).equals('vote');
+      assume(obj.data).equals('data packet');
+    });
+  });
+
   describe('event', function () {
     describe('term change', function () {
       it('resets the votes', function (next) {
@@ -272,6 +294,55 @@ describe('liferaft', function () {
 
         raft.change({ term: 2 });
       });
+    });
+  });
+
+  //
+  // The following set of tests asserts if we correctly follow the Raft white
+  // paper and that our module does what is expected of it.
+  //
+  describe('election', function () {
+    describe('vote', function () {
+      it('ignores stale votes when term is out of date');
+      it('votes on first come first serve basis');
+      it('does not vote if already voted');
+    });
+
+    describe('voted', function () {
+      it('only increments votes when being a CANDIDATE', function () {
+        assume(raft.votes.granted).equals(0);
+        assume(raft.state).equals(Raft.FOLLOWER);
+
+        raft.emit('data', {
+          data: { granted: true },
+          term: raft.term,
+          state: Raft.FOLLOWER,
+          name: 'foobar',
+          type: 'voted'
+        });
+
+        assume(raft.votes.granted).equals(0);
+
+        //
+        // Promote our selfs to candidate.
+        //
+        raft.promote();
+        assume(raft.state).equals(Raft.CANDIDATE);
+        assume(raft.votes.granted).equals(1);
+
+        raft.emit('data', {
+          data: { granted: true },
+          term: raft.term,
+          state: Raft.FOLLOWER,
+          name: 'foobar',
+          type: 'voted'
+        });
+
+        assume(raft.votes.granted).equals(2);
+      });
+
+      it('only accepts granted votes');
+      it('changes to leader when majority has voted');
     });
   });
 });
