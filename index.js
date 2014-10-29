@@ -63,8 +63,10 @@ function Node(options) {
   this.timers = new Tick(this);
 
   //
-  // 5.2: When a server starts, it's always started as Follower and it will
-  // remain in this state until receive a message from a Leader or Candidate.
+  // Raft §5.2:
+  //
+  // When a server starts, it's always started as Follower and it will remain in
+  // this state until receive a message from a Leader or Candidate.
   //
   this.state = Node.FOLLOWER; // Our current state.
   this.leader = null;         // Leader in our cluster.
@@ -82,7 +84,11 @@ Node.prototype.emits = require('emits');
 Node.prototype.constructor = Node;
 
 /**
- * The different states that a node can have.
+ * Raft §5.1:
+ *
+ * A Node can be in only one of the various states. The stopped state is not
+ * something that is part of the Raft protocol but something we might want to
+ * use internally while we're starting or shutting down our node.
  *
  * @type {Number}
  * @private
@@ -93,39 +99,66 @@ Node.FOLLOWER  = 3;   // We're just following a leader.
 Node.STOPPED   = 4;   // Assume we're dead.
 
 /**
- * Initialize the node.
+ * Initialize the node and start listening to the various of events we're
+ * emitting as we're quite chatty to provide the maximum amount of flexibility
+ * and reconfigurability.
  *
  * @api private
  */
 Node.prototype.initialize = function initialize() {
+  //
+  // Reset our vote as we're starting a new term. Votes only last one term.
+  //
   this.on('term change', function change() {
-    //
-    // Reset our vote as we're starting a new term. Votes only last one term.
-    //
     this.votes.for = null;
     this.votes.granted = 0;
   });
 
+  //
+  // Reset our times and start the heartbeat again. If we're promoted to leader
+  // the heartbeat will automatically be broadcasted to users as well.
+  //
+  this.on('state change', function change(currently, previously) {
+    this.timers.clear();
+    this.heartbeat();
+  });
+
+  //
+  // Receive incoming messages and process them.
+  //
   this.on('data', function incoming(data) {
-    if ('object' !== typeof data) return; /* Invalid data structure, G.T.F.O. */
+    if ('object' !== typeof data) {
+      return; /* Invalid data structure, G.T.F.O. */
+    }
 
     //
-    // We're waiting for votes to come in as we're promoted to a candidate but
-    // a new node with a leadership role just send us a message. If his term is
-    // greater then ours we will step down as candidate and acknowledge their
-    // leadership.
+    // Raft §5.1:
     //
-    if (
-         Node.CANDIDATE === this.state
-      && Node.LEADER === this.state
-    ) {
-      if (data.term >= this.term) {
-        this.change({
-          state: Node.FOLLOWER,
-          term: data.term
-        });
-      }
-      else return; /* We need to ignore the RPC as it's in an incorrect state */
+    // Applies to all states. If a response contains a higher term then our
+    // current term need to change our state to FOLLOWER and set the received
+    // term.
+    //
+    // If the node receives a request with a stale term number it should be
+    // rejected.
+    //
+    if (data.term > this.term) {
+      this.change({
+        state: Node.FOLLOWER,
+        term: data.term
+      });
+    } else if (data.term < this.term) {
+      return;
+    }
+
+    //
+    // Raft §5.2:
+    //
+    // If we receive a message from someone who claims to be leader and shares
+    // our same term while we're in candidate mode we will recognize their
+    // leadership and return as follower
+    //
+    if (Node.LEADER === data.state && Node.FOLLOWER !== this.state) {
+      this.change({ state: Node.FOLLOWER });
     }
 
     switch (data.type) {
@@ -135,6 +168,9 @@ Node.prototype.initialize = function initialize() {
         }
       break;
 
+      //
+      // Raft §5.2:
+      // Raft §5.4:
       //
       // A node asked us to vote on them. We can only vote to them if they
       // represent a higher term (and last log term, last log index).
@@ -297,15 +333,16 @@ Node.prototype.timeout = function timeout(which) {
 };
 
 /**
- * Node detected a failure in the cluster and wishes to be promoted to new
- * master and promotes it self to candidate.
+ * Raft §5.2:
+ *
+ * We've detected a timeout from the leaders heartbeats and need to start a new
+ * election for leadership. We increment our current term, set the CANDIDATE
+ * state, vote our selfs and ask all others nodes to vote for us.
  *
  * @returns {Node}
  * @api public
  */
 Node.prototype.promote = function promote() {
-  if (Node.CANDIDATE === this.state) return this;
-
   this.change({
     state: Node.CANDIDATE,  // We're now a candidate,
     term: this.term + 1,    // but only for this term.
@@ -318,7 +355,13 @@ Node.prototype.promote = function promote() {
   //
   this.votes.for = this.name;
   this.votes.granted = 1;
-  this.broadcast('vote');
+
+  //
+  // Set the election timeout. This gives the nodes some time to reach
+  // consensuses about who they want to vote for. If no consensus has been
+  // reached within the set timeout we will attempt it again.
+  //
+  this.timers.setTimeout('election', this.promote, this.timeout('election'));
 
   return this;
 };
