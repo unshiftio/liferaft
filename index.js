@@ -203,8 +203,7 @@ Node.prototype.initialize = function initialize(options) {
         // The term of the vote is bigger then ours so we need to update it. If
         // it's the same and we already voted, we need to deny the vote.
         //
-        if (packet.term > this.term) this.change({ term: packet.term });
-        else if (this.votes.for && this.votes.for !== packet.name) {
+        if (this.votes.for && this.votes.for !== packet.name) {
           this.emit('vote', packet, false);
           return this.write('vote', { granted: false });
         }
@@ -237,9 +236,7 @@ Node.prototype.initialize = function initialize(options) {
         // Increment our received votes when our voting request has been
         // granted by the node that received the data.
         //
-        if (packet.data.granted && packet.term === this.term) {
-          this.votes.granted++;
-        }
+        if (packet.data.granted) this.votes.granted++;
 
         //
         // Check if we've received the minimal amount of votes required for this
