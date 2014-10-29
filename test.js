@@ -339,10 +339,50 @@ describe('liferaft', function () {
         });
 
         assume(raft.votes.granted).equals(2);
+        assume(raft.state).equals(Raft.CANDIDATE);
       });
 
-      it('only accepts granted votes');
-      it('changes to leader when majority has voted');
+      it('only accepts granted votes', function () {
+        raft.promote();
+        assume(raft.state).equals(Raft.CANDIDATE);
+        assume(raft.votes.granted).equals(1);
+
+        raft.emit('data', {
+          data: { granted: false },
+          term: raft.term,
+          state: Raft.FOLLOWER,
+          name: 'foobar',
+          type: 'voted'
+        });
+
+        assume(raft.votes.granted).equals(2);
+        assume(raft.state).equals(Raft.CANDIDATE);
+      });
+
+      it('changes to leader when majority has voted', function (next) {
+        //
+        // Feed raft some "nodes" so it can actually reach a consensus when it
+        // received a majority of the votes.
+        //
+        raft.nodes.push(1, 2, 3, 4, 5);
+        raft.promote();
+
+        raft.once('state changes', function (currently, previously) {
+          assume(raft.state).equals(Raft.CANDIDATE);
+        });
+
+        for (var i = 0; i < 4; i++) {
+          raft.emit('data', {
+            data: { granted: true },
+            term: raft.term,
+            state: Raft.FOLLOWER,
+            name: 'foobar',
+            type: 'voted'
+          });
+        }
+
+        assume(raft.state).equals(Raft.LEADER);
+      });
     });
   });
 });
