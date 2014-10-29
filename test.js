@@ -7,7 +7,10 @@ describe('liferaft', function () {
     , raft;
 
   beforeEach(function each() {
-    raft = new Raft();
+    raft = new Raft({
+      'heartbeat min': 4000,  // Bump timeout to ensure no false positive
+      'heartbeat max': 6000   // so we don't trigger before test timeout
+    });
   });
 
   afterEach(function each() {
@@ -24,10 +27,13 @@ describe('liferaft', function () {
 
   describe('initialization', function () {
     it('can be constructed without `new`', function () {
-      assume(Raft()).is.instanceOf(Raft);
+      raft.end();
+      raft = Raft();
+      assume(raft).is.instanceOf(Raft);
     });
 
     it('accepts strings for election and heartbeat', function () {
+      raft.end();
       raft = new Raft({
         'election min': '100 ms',
         'election max': '150 ms',
@@ -55,10 +61,14 @@ describe('liferaft', function () {
     });
 
     it('sets a unique name by default', function () {
-      assume(raft.name).does.not.equal((new Raft()).name);
+      var another = new Raft();
+
+      assume(raft.name).does.not.equal(another.name);
+      another.end();
     });
 
     it('can set a custom name', function () {
+      raft.end();
       raft = new Raft({ name: 'foo' });
 
       assume(raft.name).equals('foo');
@@ -93,7 +103,9 @@ describe('liferaft', function () {
     });
 
     it('uses user supplied timeouts', function () {
-      var raft = new Raft({
+      raft.end();
+
+      raft = new Raft({
         'election min': '300ms',
         'election max': '1s'
       });
@@ -191,10 +203,8 @@ describe('liferaft', function () {
 
   describe('heartbeat', function () {
     it('increments the heartbeat if set before', function (next) {
-      raft = new Raft({
-        'heartbeat min': 100,
-        'heartbeat max': 110
-      });
+      raft.end();
+      raft = new Raft({ 'heartbeat min': 100, 'heartbeat max': 110 });
 
       raft.heartbeat();
       setTimeout(function () {
@@ -205,11 +215,17 @@ describe('liferaft', function () {
     });
 
     it('emits a heartbeat timeout', function (next) {
+      raft.end();
+      raft = new Raft({ 'heartbeat min': 10, 'heartbeat max': 40 });
+
       raft.once('heartbeat timeout', next);
       raft.heartbeat();
     });
 
     it('promotes to candidate', function (next) {
+      raft.end();
+      raft = new Raft({ 'heartbeat min': 10, 'heartbeat max': 40 });
+
       raft.once('state change', function () {
         assume(raft.state).equals(Raft.CANDIDATE);
         next();
@@ -325,6 +341,49 @@ describe('liferaft', function () {
         raft.votes.granted++;
 
         raft.change({ term: 2 });
+      });
+    });
+
+    describe('data', function () {
+      it('calls the callback for unknown messages', function (next) {
+        raft.emit('data', { type: 'bar' }, function (err) {
+          assume(err).is.instanceOf(Error);
+          next();
+        });
+      });
+
+      it('calls with an error when invalid data is send', function (next) {
+        raft.emit('data', 1, function (err) {
+          assume(err).is.instanceOf(Error);
+          next();
+        });
+      });
+
+      it('updates to FOLLOWER as CANDIDATE when msg by LEADER', function (next) {
+        raft.promote();
+
+        raft.once('state change', function () {
+          assume(this.state).equals(Raft.FOLLOWER);
+          next();
+        });
+
+        raft.emit('data', {
+          state: Raft.LEADER,
+          term: raft.term
+        });
+      });
+
+      it('automatically update term when ours is out of date', function (next) {
+        raft.change({ term : 40 });
+        raft.once('term change', function () {
+          assume(this.term).equals(41);
+          next();
+        });
+
+        raft.emit('data', {
+          state: Raft.LEADER,
+          term: 41
+        });
       });
     });
   });
