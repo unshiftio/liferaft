@@ -81,7 +81,6 @@ function Node(options) {
 //
 Node.extend = require('extendable');
 Node.prototype = new EventEmitter();
-Node.prototype.emits = require('emits');
 Node.prototype.constructor = Node;
 
 /**

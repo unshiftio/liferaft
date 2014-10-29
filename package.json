@@ -25,7 +25,6 @@
   },
   "homepage": "https://github.com/unshiftio/liferaft",
   "dependencies": {
-    "emits": "1.0.x",
     "eventemitter3": "0.1.x",
     "extendible": "0.1.x",
     "tick-tock": "0.0.x"
