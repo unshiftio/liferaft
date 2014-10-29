@@ -278,6 +278,20 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#quorum', function () {
+    it('generates an int', function () {
+      for (var i = 0; i < 13; i++) {
+        raft.nodes.push(i);
+        assume(raft.quorum() % 1 === 0).is.true();
+      }
+    });
+
+    it('needs 7 votes in a cluster of 11', function () {
+      raft.nodes.push(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+      assume(raft.quorum()).equals(7);
+    });
+  });
+
   describe('event', function () {
     describe('term change', function () {
       it('resets the votes', function (next) {
