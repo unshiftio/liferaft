@@ -62,4 +62,4 @@ Event               | Description
 
 MIT
 
-[Raft]: https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf
+[Raft]: https://ramcloud.stanford.edu/raft.pdf
