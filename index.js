@@ -126,9 +126,9 @@ Node.prototype.initialize = function initialize() {
   //
   // Receive incoming messages and process them.
   //
-  this.on('data', function incoming(data) {
-    if ('object' !== typeof data) {
-      return; /* Invalid data structure, G.T.F.O. */
+  this.on('data', function incoming(packet) {
+    if ('object' !== typeof packet) {
+      return; /* Invalid packet structure, G.T.F.O. */
     }
 
     //
@@ -141,12 +141,13 @@ Node.prototype.initialize = function initialize() {
     // If the node receives a request with a stale term number it should be
     // rejected.
     //
-    if (data.term > this.term) {
+    if (packet.term > this.term) {
       this.change({
+        leader: packet.leader,
         state: Node.FOLLOWER,
-        term: data.term
+        term: packet.term
       });
-    } else if (data.term < this.term) {
+    } else if (packet.term < this.term) {
       return;
     }
 
@@ -157,14 +158,14 @@ Node.prototype.initialize = function initialize() {
     // our same term while we're in candidate mode we will recognize their
     // leadership and return as follower
     //
-    if (Node.LEADER === data.state && Node.FOLLOWER !== this.state) {
-      this.change({ state: Node.FOLLOWER });
+    if (Node.LEADER === packet.state && Node.FOLLOWER !== this.state) {
+      this.change({ state: Node.FOLLOWER, leader: packet.leader });
     }
 
-    switch (data.type) {
+    switch (packet.type) {
       case 'heartbeat':
-        if (Node.LEADER === data.state) {
-          this.heartbeat(data.data);
+        if (Node.LEADER === packet.state) {
+          this.heartbeat(packet.packet);
         }
       break;
 
@@ -179,8 +180,8 @@ Node.prototype.initialize = function initialize() {
         //
         // If the request is coming from an old term we should deny it.
         //
-        if (data.term < this.term) {
-          this.emit('vote', data, false);
+        if (packet.term < this.term) {
+          this.emit('vote', packet, false);
           return this.write('vote', { granted: false });
         }
 
@@ -188,9 +189,9 @@ Node.prototype.initialize = function initialize() {
         // The term of the vote is bigger then ours so we need to update it. If
         // it's the same and we already voted, we need to deny the vote.
         //
-        if (data.term > this.term) this.change({ term: data.term });
-        else if (this.votes.for && this.votes.for !== data.name) {
-          this.emit('vote', data, false);
+        if (packet.term > this.term) this.change({ term: packet.term });
+        else if (this.votes.for && this.votes.for !== packet.name) {
+          this.emit('vote', packet, false);
           return this.write('vote', { granted: false });
         }
 
@@ -204,8 +205,8 @@ Node.prototype.initialize = function initialize() {
         // candidate came in first so it gets our vote as all requirements are
         // met.
         //
-        this.votes.for = data.name;
-        this.emit('vote', data, true);
+        this.votes.for = packet.name;
+        this.emit('vote', packet, true);
         this.write('vote', { granted: true });
       break;
 
@@ -222,14 +223,9 @@ Node.prototype.initialize = function initialize() {
         // Increment our received votes when our voting request has been
         // granted by the node that received the data.
         //
-        if (data.payload.granted && data.term === this.term) {
+        if (packet.data.granted && packet.term === this.term) {
           this.votes.granted++;
         }
-
-        //
-        // Again, update our term if it's out sync.
-        //
-        if (data.term > this.term) this.change({ term: data.term });
 
         //
         // Check if we've received the minimal amount of votes required for this
@@ -411,11 +407,12 @@ Node.prototype.broadcast = function broadcast(type, data) {
  */
 Node.prototype.packet = function packet(type, data) {
   return {
-    state: this.state,  // So you know if we're a leader, candidate or follower
-    term:  this.term,   // Our current term so we can find mis matches
-    name:  this.name,   // Name of the sender.
-    data:  data,        // Custom data we send.
-    type:  type         // Message type.
+    state:  this.state,   // So you know if we're a leader, candidate or follower.
+    term:   this.term,    // Our current term so we can find mis matches.
+    name:   this.name,    // Name of the sender.
+    data:   data,         // Custom data we send.
+    type:   type,         // Message type.
+    leader: this.leader   // Who is our leader.
   };
 };
 
