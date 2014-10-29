@@ -49,8 +49,8 @@ function Node(options) {
   };
 
   this.beat = {
-    min: Tick.parse(options['heartbeat min'] || '50 ms'),
-    max: Tick.parse(options['heartbeat max'] || '70 ms')
+    min: Tick.parse(options['heartbeat min'] || this.election.min),
+    max: Tick.parse(options['heartbeat max'] || this.election.max)
   };
 
   this.votes = {
@@ -73,7 +73,7 @@ function Node(options) {
   this.leader = null;         // Leader in our cluster.
   this.term = 0;              // Our current term.
 
-  this.initialize();
+  this.initialize(options);
 }
 
 //
@@ -242,10 +242,18 @@ Node.prototype.initialize = function initialize() {
         }
       break;
 
-      case 'rpc':
+      case 'append':
+      break;
+
+      case 'log':
+
       break;
     }
   });
+
+  //
+  // Setup the log appends.
+  //
 
   //
   // The node is now listening to events so we can start our heartbeat timeout.
