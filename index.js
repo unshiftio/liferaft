@@ -192,14 +192,6 @@ Node.prototype.initialize = function initialize(options) {
       //
       case 'vote':
         //
-        // If the request is coming from an old term we should deny it.
-        //
-        if (packet.term < this.term) {
-          this.emit('vote', packet, false);
-          return this.write('vote', { granted: false });
-        }
-
-        //
         // The term of the vote is bigger then ours so we need to update it. If
         // it's the same and we already voted, we need to deny the vote.
         //

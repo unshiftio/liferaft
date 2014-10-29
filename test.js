@@ -335,9 +335,33 @@ describe('liferaft', function () {
   //
   describe('election', function () {
     describe('vote', function () {
-      it('ignores stale votes when term is out of date');
-      it('votes on first come first serve basis');
-      it('does not vote if already voted');
+      it('ignores stale votes when term is out of date', function () {
+        raft.once('vote', function (packet, accepted) {
+          throw new Error('Broken');
+        });
+
+        raft.change({ term: 139 });
+        raft.emit('data', {
+          name: 'vladimir',
+          type: 'vote',
+          term: 138
+        });
+      });
+
+      it('votes on first come first serve basis', function (next) {
+        raft.once('vote', function (packet, accepted) {
+          assume(accepted).is.true();
+
+          raft.once('vote', function (packet, accepted) {
+            assume(accepted).is.false();
+            next();
+          });
+        });
+
+        raft.change({ term: 139 });
+        raft.emit('data', { name: 'vladimir', term: raft.term, type: 'vote' });
+        raft.emit('data', { name: 'anatoly', term: raft.term, type: 'vote' });
+      });
     });
 
     describe('voted', function () {
