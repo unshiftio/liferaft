@@ -4,6 +4,17 @@ var EventEmitter = require('eventemitter3')
   , Tick = require('tick-tock');
 
 /**
+ * Proper type checking.
+ *
+ * @param {Mixed} of Thing we want to know the type of.
+ * @returns {String} The type.
+ * @api private
+ */
+function type(of) {
+  return Object.prototype.toString.call(of).slice(8, -1).toLowerCase();
+}
+
+/**
  * Generate a somewhat unique UUID.
  *
  * @see stackoverflow.com/q/105034
@@ -103,9 +114,10 @@ Node.STOPPED   = 4;   // Assume we're dead.
  * emitting as we're quite chatty to provide the maximum amount of flexibility
  * and reconfigurability.
  *
+ * @param {Object} options The configuration you passed in the constructor.
  * @api private
  */
-Node.prototype.initialize = function initialize() {
+Node.prototype.initialize = function initialize(options) {
   //
   // Reset our vote as we're starting a new term. Votes only last one term.
   //
@@ -127,7 +139,7 @@ Node.prototype.initialize = function initialize() {
   // Receive incoming messages and process them.
   //
   this.on('data', function incoming(packet) {
-    if ('object' !== typeof packet) {
+    if ('object' !== type(packet)) {
       return; /* Invalid packet structure, G.T.F.O. */
     }
 
