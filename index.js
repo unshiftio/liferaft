@@ -235,10 +235,8 @@ Node.prototype.initialize = function initialize() {
         // current voting round to be considered valid
         //
         if (this.votes.granted >= this.quorum()) {
-          this.change({
-            leader: this.name,
-            state: Node.LEADER
-          });
+          this.change({ leader: this.name, state: Node.LEADER });
+          // @TODO broadcast start heartbeat.
         }
       break;
 
@@ -311,7 +309,7 @@ Node.prototype.change = function change(changed) {
  * @api public
  */
 Node.prototype.heartbeat = function heartbeat(duration) {
-  duration = duration || this.timeout('heartbeat');
+  duration = duration || this.timeout('beat');
 
   if (this.timers.active('heartbeat')) {
     this.timers.adjust('heartbeat', duration);
