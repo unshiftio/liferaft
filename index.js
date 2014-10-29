@@ -33,6 +33,14 @@ function UUID() {
 }
 
 /**
+ * A nope function for when people don't want message acknowledgements. Because
+ * they don't care about CAP.
+ *
+ * @api private
+ */
+function nope() {}
+
+/**
  * Representation of a single node in the cluster.
  *
  * Options:
@@ -138,9 +146,11 @@ Node.prototype.initialize = function initialize(options) {
   //
   // Receive incoming messages and process them.
   //
-  this.on('data', function incoming(packet) {
+  this.on('data', function incoming(packet, write) {
+    write = write || nope;
+
     if ('object' !== type(packet)) {
-      return; /* Invalid packet structure, G.T.F.O. */
+      return write(new Error('Invalid packet received'));
     }
 
     //
@@ -160,7 +170,7 @@ Node.prototype.initialize = function initialize(options) {
         term: packet.term
       });
     } else if (packet.term < this.term) {
-      return;
+      return write(new Error('Stale term detected, we are at '+ this.term));
     }
 
     //
@@ -197,7 +207,7 @@ Node.prototype.initialize = function initialize(options) {
         //
         if (this.votes.for && this.votes.for !== packet.name) {
           this.emit('vote', packet, false);
-          return this.write('vote', { granted: false });
+          return write(undefined, this.packet('vote', { granted: false }));
         }
 
         //
@@ -212,7 +222,7 @@ Node.prototype.initialize = function initialize(options) {
         //
         this.votes.for = packet.name;
         this.emit('vote', packet, true);
-        this.write('vote', { granted: true });
+        write(undefined, this.packet('vote', { granted: true }));
       break;
 
       //
@@ -222,7 +232,9 @@ Node.prototype.initialize = function initialize(options) {
         //
         // Only accepts votes while we're still in a CANDIDATE state.
         //
-        if (Node.CANDIDATE !== this.state) return;
+        if (Node.CANDIDATE !== this.state) {
+          return write(new Error('No longer a candidate'));
+        }
 
         //
         // Increment our received votes when our voting request has been
@@ -236,16 +248,26 @@ Node.prototype.initialize = function initialize(options) {
         //
         if (this.quorum(this.votes.granted)) {
           this.change({ leader: this.name, state: Node.LEADER });
-          // @TODO broadcast start heartbeat.
         }
+
+        //
+        // Empty write, nothing to do.
+        //
+        write();
       break;
 
       case 'append':
       break;
 
       case 'log':
-
       break;
+
+      //
+      // Unknown event, we have no idea how to process this so we're going to
+      // return an error.
+      //
+      default:
+        write(new Error('Unknown message type: '+ packet.type));
     }
   });
 
@@ -388,29 +410,6 @@ Node.prototype.promote = function promote() {
   this.timers.setTimeout('election', this.promote, this.timeout('election'));
 
   return this;
-};
-
-/**
- * While we don't really adapt the Stream interface here from node, we still
- * want to follow it's API signature. So we assume that the `write` method will
- * return a boolean indicating if the packet has been written.
- *
- * @param {Object} packet The data that needs to be written.
- * @returns {Boolean} Indication that the message was written.
- * @api public
- */
-Node.prototype.write = function write(packet) {
-  return false;
-};
-
-/**
- * Read and process an incoming data packet.
- *
- * @returns {Boolean} Did we read the message.
- * @api public
- */
-Node.prototype.read = function read(packet) {
-  return this.emit('data', packet);
 };
 
 /**
