@@ -29,11 +29,11 @@ function Log(node, options) {
   // fetching. These could be used as a cache like thing as well if we wanted
   // faster lookups by default.
   //
-  this._entries = [];
-  this._commitIndex = 0;
-  this._lastApplied = 0;
-  this._startIndex = 0;
-  this._startTerm = 0;
+  this.entries = [];
+  this.commitIndex = 0;
+  this.lastApplied = 0;
+  this.startIndex = 0;
+  this.startTerm = 0;
 }
 
 /**
@@ -51,7 +51,7 @@ Log.prototype.commit = function commit(data, fn) {
 };
 
 Log.prototype.append = function append(entry) {
-  this._entries.push(entry);
+  this.entries.push(entry);
 };
 
 /**
@@ -61,12 +61,12 @@ Log.prototype.append = function append(entry) {
  * @api public
  */
 Log.prototype.last = function lastentry() {
-  var last = this._entries[this._entries.length - 1];
+  var last = this.entries[this.entries.length - 1];
   if (last) return last;
 
   return {
-    index: this._startIndex,
-    term: this._startTerm
+    index: this.startIndex,
+    term: this.startTerm
   };
 };
 
