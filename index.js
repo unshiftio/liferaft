@@ -529,9 +529,9 @@ Node.prototype.leave = function leave(name) {
     }
   }
 
-  if (~index) {
+  if (~index && node) {
+    if (node.end) node.end();
     this.nodes.splice(index, 1);
-    node.end();
   }
 
   return node;
