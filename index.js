@@ -216,6 +216,16 @@ Node.prototype.initialize = function initialize(options) {
         // If we maintain a log, check if the candidates log is as up to date as
         // ours.
         //
+        // @TODO point to index of last commit entry.
+        // @TODO point to term of last commit entry.
+        //
+        if (this.log && packet.last && (
+             this.log.index > packet.last.index
+          || this.term > packet.last.term
+        )) {
+          this.emit('vote', packet, false);
+          return write(undefined, this.packet('vote', { granted: false }));
+        }
 
         //
         // We've made our decision, we haven't voted for this term yet and this
@@ -433,15 +443,25 @@ Node.prototype.promote = function promote() {
  * @returns {Object} Packet.
  * @api private
  */
-Node.prototype.packet = function packet(type, data) {
-  return {
+Node.prototype.packet = function wrap(type, data) {
+  var packet = {
     state:  this.state,   // So you know if we're a leader, candidate or follower.
     term:   this.term,    // Our current term so we can find mis matches.
     name:   this.name,    // Name of the sender.
     data:   data,         // Custom data we send.
     type:   type,         // Message type.
-    leader: this.leader   // Who is our leader.
+    leader: this.leader,  // Who is our leader.
   };
+
+  //
+  // If we have logging and state replication enabled we also need to send this
+  // additional data so we can use it determine the state of this node.
+  //
+  // @TODO point to index of last commit entry.
+  // @TODO point to term of last commit entry.
+  //
+  if (this.log) packet.last = { term: this.term, index: this.log.index };
+  return packet;
 };
 
 /**
