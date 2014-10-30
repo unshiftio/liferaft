@@ -17,7 +17,6 @@ var setImmediate = require('immediate');
 function Log(node, options) {
   if (!(this instanceof Log)) return new Log(node, options);
 
-  // Might be necessary
   this.node = node;
   this.engine = options.engine || 'memory';
 
@@ -28,7 +27,7 @@ function Log(node, options) {
   // its own namespaced key set for easy stream reading and the other values
   // would be stored at their particular key for proper persistence and
   // fetching. These could be used as a cache like thing as well if we wanted
-  // faster lookups by default
+  // faster lookups by default.
   //
   this._entries = [];
   this._commitIndex = 0;
@@ -40,8 +39,8 @@ function Log(node, options) {
 /**
  * Commit a log entry
  *
- * @param {Object} Data we receive from ourselves or from LEADER
- * @param {function} Callback function
+ * @param {Object} data Data we receive from ourselves or from LEADER
+ * @param {function} fn function
  * @api public
  */
 Log.prototype.commit = function commit(data, fn) {
@@ -56,15 +55,19 @@ Log.prototype.append = function append(entry) {
 };
 
 /**
- *
  * Return the last entry (this may be async in the future)
  *
+ * @returns {Object}
  * @api public
  */
 Log.prototype.last = function lastentry() {
   var last = this._entries[this._entries.length - 1];
   if (last) return last;
-  return { term: this._startTerm, index: this._startIndex };
+
+  return {
+    index: this._startIndex,
+    term: this._startTerm
+  };
 };
 
 /**
@@ -90,10 +93,10 @@ Log.prototype.entry = function entry(data) {
   // to be replayed in case necessary?
   //
   return {
-    type: type,
-    term: this.node.term,
+    command: command,
     index: index,
-    command: command
+    term: this.node.term,
+    type: type
   };
 };
 
