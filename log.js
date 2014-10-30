@@ -36,6 +36,11 @@ function Log(node, options) {
   this.entries = [];
 }
 
+//
+// Add some sugar and spice and everything nice. Oh, and also inheritance.
+//
+Log.extend = require('extendible');
+
 /**
  * Commit a log entry
  *
