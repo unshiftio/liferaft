@@ -1,5 +1,8 @@
 # liferaft
 
+[![Build Status](https://travis-ci.org/unshiftio/liferaft.svg?branch=master)](https://travis-ci.org/unshiftio/liferaft)
+[![Coverage Status](https://coveralls.io/repos/unshiftio/liferaft/badge.png?branch=master)](https://coveralls.io/r/unshiftio/liferaft?branch=master)
+
 `liferaft` is an JavaScript implementation of the [Raft] consensus algorithm. 
 
 ## Installation
