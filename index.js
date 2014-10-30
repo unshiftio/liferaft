@@ -256,9 +256,16 @@ Node.prototype.initialize = function initialize(options) {
         write();
       break;
 
+      //
+      // Remark: Are we assuming we are getting an appendEntries from the
+      // leader and comparing and appending our log?
+      //
       case 'append':
       break;
 
+      //
+      // Remark: So does this get emit when we need to write our OWN log?
+      //
       case 'log':
       break;
 
