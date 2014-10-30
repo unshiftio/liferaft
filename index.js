@@ -45,7 +45,7 @@ function nope() {}
  *
  * Options:
  *
- * - `id`: An unique id of this given node.
+ * - `name`: An unique id of this given node.
  * - `heartbeat min`: Minimum heartbeat timeout.
  * - `heartbeat max`: Maximum heartbeat timeout.
  * - `election min`: Minimum election timeout.
@@ -462,6 +462,64 @@ Node.prototype.packet = function wrap(type, data) {
   //
   if (this.log) packet.last = { term: this.term, index: this.log.index };
   return packet;
+};
+
+/**
+ * Create a clone of the current instance with the same configuration. Ideally
+ * for creating connected nodes in a cluster.. And let that be something we're
+ * planning on doing.
+ *
+ * @param {Object} options Configuration that should override the default config.
+ * @returns {Node} The newly created instance.
+ */
+Node.prototype.clone = function clone(options) {
+  options = options || {};
+
+  var node = {
+    'election min': this.election.min,
+    'election max': this.election.max,
+    'heartbeat min': this.beat.min,
+    'heartbeat max': this.beat.max,
+    'threshold': this.threshold,
+  }, key;
+
+  for (key in node) {
+    if (key in options || !options.hasOwnProperty(key)) continue;
+    options[key] = node[key];
+  }
+
+  return new this.constructor(options);
+};
+
+/**
+ * A new node is about to join the cluster. So we need to upgrade the
+ * configuration of every single node.
+ *
+ * @param {String} name The name of the node that is connected.
+ * @param {Function} write A method that we use to write data.
+ * @returns {Node} The node we created and that joined our cluster.
+ * @api public
+ */
+Node.prototype.join = function join(name, write, fn) {
+  if ('function' === type(name)) {
+    fn = write; write = name; name = null;
+  }
+
+  var node = this.clone({ name: name });
+  this.nodes.push(node);
+
+  return node;
+};
+
+/**
+ * Remove a node from the cluster.
+ *
+ * @returns {Node} The node that we removed.
+ * @api public
+ */
+Node.prototype.leave = function leave(name) {
+  var node;
+  return node;
 };
 
 /**
