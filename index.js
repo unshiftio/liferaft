@@ -484,7 +484,7 @@ Node.prototype.clone = function clone(options) {
   }, key;
 
   for (key in node) {
-    if (key in options || !options.hasOwnProperty(key)) continue;
+    if (key in options || !node.hasOwnProperty(key)) continue;
     options[key] = node[key];
   }
 

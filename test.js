@@ -326,6 +326,39 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#clone', function () {
+    it('returns the created instance', function () {
+      var x = raft.clone();
+
+      assume(x).is.instanceOf(Raft);
+    });
+
+    it('returns instance of a custom instance', function () {
+      raft.end();
+
+      var Draft = Raft.extend({ write: function () { } })
+        , draft = new Draft();
+
+      assume(draft.clone()).is.instanceOf(Draft);
+      assume(draft.clone()).is.instanceOf(Raft);
+
+      draft.end();
+    });
+
+    it('inherits the options', function () {
+      raft.end();
+
+      var Draft = Raft.extend({ write: function () { } })
+        , draft = new Draft({ threshold: 99 })
+        , punk = draft.clone();
+
+      assume(punk.threshold).equals(99);
+
+      punk.end();
+      draft.end();
+    });
+  });
+
   describe('event', function () {
     describe('term change', function () {
       it('resets the votes', function (next) {
