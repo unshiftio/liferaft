@@ -98,7 +98,7 @@ function Node(options) {
 //
 // Add some sugar and spice and everything nice. Oh, and also inheritance.
 //
-Node.extend = require('extendable');
+Node.extend = require('extendible');
 Node.prototype = new EventEmitter();
 Node.prototype.constructor = Node;
 
