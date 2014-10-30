@@ -29,11 +29,11 @@ function Log(node, options) {
   // fetching. These could be used as a cache like thing as well if we wanted
   // faster lookups by default.
   //
-  this.entries = [];
   this.commitIndex = 0;
   this.lastApplied = 0;
   this.startIndex = 0;
   this.startTerm = 0;
+  this.entries = [];
 }
 
 /**
