@@ -52,6 +52,7 @@ function nope() {}
  * - `election max`: Maximum election timeout.
  * - `threshold`: Threshold when the heartbeat RTT is close to the election
  *   timeout.
+ * - `Log`: A Log constructor that should be used to store commit logs.
  *
  * @constructor
  * @param {Object} options Node configuration.
@@ -80,6 +81,7 @@ function Node(options) {
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
   this.timers = new Tick(this);
+  this.log = null;
   this.nodes = [];
 
   //
@@ -279,8 +281,13 @@ Node.prototype.initialize = function initialize(options) {
   });
 
   //
-  // Setup the log appends.
+  // Setup the log & appends. Assume that if we're given a function log that it
+  // needs to be initialized as it requires access to our node instance so it
+  // can read our information like our leader, state, term etc.
   //
+  if ('function' === type(options.Log)) {
+    this.log = new options.Log(this, options);
+  }
 
   //
   // The node is now listening to events so we can start our heartbeat timeout.

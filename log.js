@@ -1,23 +1,26 @@
 'use strict';
 
-var setImmediate = require('immediate')
-  , Node = require('./');
-
-module.exports = Log;
+var setImmediate = require('immediate');
 
 /**
- * The representation of the log of a single node
+ * The representation of the log of a single node.
+ *
+ * Options:
+ *
+ * - `engine` The storage engine that should be used.
  *
  * @constructor
- * @param {Node} instance of a node
+ * @param {Node} node Instance of a node.
+ * @param {Object} options Optional configuration.
  * @api public
  */
-function Log(node, engine) {
-  if (!(this instanceof Log)) return new Log(options);
+function Log(node, options) {
+  if (!(this instanceof Log)) return new Log(node, options);
 
   // Might be necessary
   this.node = node;
-  this.engine = engine || 'memory';
+  this.engine = options.engine || 'memory';
+
   //
   // Remark: So we want to use something like leveldb here with a particular engine but
   // for now lets just use a silly little array
@@ -32,7 +35,6 @@ function Log(node, engine) {
   this._lastApplied = 0;
   this._startIndex = 0;
   this._startTerm = 0;
-
 }
 
 /**
@@ -42,14 +44,14 @@ function Log(node, engine) {
  * @param {function} Callback function
  * @api public
  */
-Log.prototype.commit = function (data, fn) {
+Log.prototype.commit = function commit(data, fn) {
   var entry = this.entry(data);
 
   if (entry) this.append(entry);
   return setImmediate(fn.bind(null, null, !!entry));
 };
 
-Log.prototype.append = function (entry) {
+Log.prototype.append = function append(entry) {
   this._entries.push(entry);
 };
 
@@ -59,7 +61,7 @@ Log.prototype.append = function (entry) {
  *
  * @api public
  */
-Log.prototype.last = function () {
+Log.prototype.last = function lastentry() {
   var last = this._entries[this._entries.length - 1];
   if (last) return last;
   return { term: this._startTerm, index: this._startIndex };
@@ -71,7 +73,7 @@ Log.prototype.last = function () {
  * @param {object} Data to compute to a proper entry
  * @api public
  */
-Log.prototype.entry = function (data) {
+Log.prototype.entry = function entry(data) {
   //
   // type of entry, (data/command, or something related to raft itself)
   //
@@ -92,7 +94,10 @@ Log.prototype.entry = function (data) {
     term: this.node.term,
     index: index,
     command: command
-  }
+  };
 };
 
-
+//
+// Expose the log module.
+//
+module.exports = Log;
