@@ -518,7 +518,22 @@ Node.prototype.join = function join(name, write, fn) {
  * @api public
  */
 Node.prototype.leave = function leave(name) {
-  var node;
+  var index = -1
+    , node;
+
+  for (var i = 0; i < this.nodes.length; i++) {
+    if (this.nodes[i] === name || this.nodes[i].name === name) {
+      node = this.nodes[i];
+      index = i;
+      break;
+    }
+  }
+
+  if (~index) {
+    this.nodes.splice(index, 1);
+    node.end();
+  }
+
   return node;
 };
 
@@ -531,9 +546,14 @@ Node.prototype.leave = function leave(name) {
 Node.prototype.end = function end() {
   if (!this.state) return false;
 
+  if (this.nodes.length) for (var i = 0; i < this.nodes.length; i++) {
+    this.leave(this.nodes[i]);
+  }
+
   this.timers.end();
   this.removeAllListeners();
 
+  this.nodes.length = 0;
   this.timers = this.state = this.write = this.read = null;
 
   return true;
