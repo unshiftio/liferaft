@@ -81,6 +81,7 @@ function Node(options) {
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
   this.timers = new Tick(this);
+  this.Log = options.Log;
   this.log = null;
   this.nodes = [];
 
@@ -295,8 +296,8 @@ Node.prototype.initialize = function initialize(options) {
   // needs to be initialized as it requires access to our node instance so it
   // can read our information like our leader, state, term etc.
   //
-  if ('function' === type(options.Log)) {
-    this.log = new options.Log(this, options);
+  if ('function' === type(this.Log)) {
+    this.log = new this.Log(this, options);
   }
 
   //
@@ -506,6 +507,11 @@ Node.prototype.join = function join(name, write, fn) {
   }
 
   var node = this.clone({ name: name });
+
+  node.once('end', function end() {
+    this.leave(node);
+  }, this);
+
   this.nodes.push(node);
   this.emit('join', node);
 
@@ -546,7 +552,8 @@ Node.prototype.leave = function leave(name) {
  * @api public
  */
 Node.prototype.end = function end() {
-  if (!this.state) return false;
+  if (Node.STOPPED === this.state) return false;
+  this.state = Node.STOPPED;
 
   if (this.nodes.length) for (var i = 0; i < this.nodes.length; i++) {
     this.leave(this.nodes[i]);
@@ -556,8 +563,8 @@ Node.prototype.end = function end() {
   this.timers.end();
   this.removeAllListeners();
 
-  this.nodes.length = 0;
-  this.timers = this.state = this.write = this.read = null;
+  if (this.log) this.log.end();
+  this.timers = this.log = this.Log = this.beat = this.election = null;
 
   return true;
 };

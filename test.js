@@ -403,6 +403,18 @@ describe('liferaft', function () {
       node.end();
     });
 
+    it('emits an `join` event when a new ode is added', function (next) {
+      raft.once('join', function (node) {
+        assume(raft.nodes.length).equal(1);
+        assume(node).is.instanceOf(Raft);
+
+        node.end();
+        next();
+      });
+
+      raft.join();
+    });
+
     it('returns the same instance as the node', function () {
       raft.end();
 
@@ -424,6 +436,19 @@ describe('liferaft', function () {
       assume(node).does.not.equal(raft);
       assume(node).is.instanceOf(Raft);
       assume(node.name).equals('foo');
+
+      node.end();
+    });
+
+    it('will leave the cluster when ended', function (next) {
+      var node = raft.join();
+
+      raft.once('leave', function (left) {
+        assume(raft.nodes.length).equals(0);
+        assume(node).equals(left);
+
+        next();
+      });
 
       node.end();
     });
