@@ -105,6 +105,16 @@ Log.prototype.entry = function entry(data) {
   };
 };
 
+/**
+ * The raft instance we're attached to is closing.
+ *
+ * @returns {Boolean} First time shutdown.
+ * @api private
+ */
+Log.prototype.end = function end() {
+  return true;
+};
+
 //
 // Expose the log module.
 //
