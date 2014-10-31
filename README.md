@@ -60,6 +60,9 @@ Event               | Description
 `heartbeat timeout` | Heartbeat timeout, we're going to change to candidate.
 `data`              | Emitted by you, so we can work with the data.
 `vote`              | We've received a vote request.
+`leave`             | Node has been removed from the cluster.
+`join`              | Node has been added to the cluster.
+`end`               | This Raft instance has ended.
 
 ## License
 

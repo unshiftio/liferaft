@@ -482,6 +482,7 @@ Node.prototype.clone = function clone(options) {
     'heartbeat min': this.beat.min,
     'heartbeat max': this.beat.max,
     'threshold': this.threshold,
+    'Log': this.Log
   }, key;
 
   for (key in node) {
