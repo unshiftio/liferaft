@@ -22,8 +22,19 @@ following:
 ```js
 'use strict';
 
-var LifeRaft = require('liferaft');
+var LifeRaft = require('liferaft')
+  , raft = new Raft();
 ```
+
+Please note that the instructions for Node.js and browser are exactly the same
+as we assume that your code will be compiled using a [Browserify] based system.
+The only major difference is that you probably don't need to configure a commit
+and append log (but this of course, fully optional).
+
+The LifeRaft library is quite dumb by default. We try to be as lean and
+extendible as possible so you, as a developer, have complete freedom on how you
+want to implement Raft in your architecture. Things like transport layers and
+replicated logs are all made optional so you can decided.
 
 ### Configuration
 
@@ -36,6 +47,8 @@ of your Raft:
 - `heartbeat max` Maximum heartbeat timeout.
 - `election min` Minimum election timeout.
 - `election max` Maximum election timeout.
+- `Log`: An Log compatible constructor we which use for state and data
+  replication. 
 
 The timeout values can be configured with either a number which represents the
 time milliseconds or a human readable time string such as `10 ms`. The election
@@ -64,8 +77,77 @@ Event               | Description
 `join`              | Node has been added to the cluster.
 `end`               | This Raft instance has ended.
 
+### LifeRaft.promote()
+
+**Private method, use with caution**
+
+This promotes the Node from `FOLLOWER` to `CANDIDATE` and starts requesting
+votes from other connected nodes. When the majority has voted in favour of this
+node, it will become `LEADER`.
+
+```js
+raft.promote();
+```
+
+### LifeRaft.join(name, write)
+
+Add a new raft node to your cluster. The name is optional, but it would be nice
+if it was the name of the node that you just added to the cluster.
+
+```js
+var node = raft.join('127.0.0.1:8080', function write(packet) {
+  // Write the message to the actual server that you just added.
+});
+```
+
+As seen in the example above it returns the `node` that we created. This `Node`
+is also a Raft instance. When the node is added to the cluster it will emit the
+`join` event. The event will also receive a reference to the node that was added
+as argument:
+
+```js
+raft.on('join', function join(node) {
+  console.log(node.name); // 127.0.0.1:8080
+});
+```
+
+### LifeRaft.leave(name)
+
+Now that you've added a new node to your raft cluster it's also good to know
+that you remove them again. This method either accepts the name of the node that
+you want to remove from the cluster or the returned `node` that was returned
+from the [`LifeRaft.join`](#liferaftjoin) method.
+
+```js
+raft.leave('127.0.0.1:8080');
+```
+
+Once the node has been removed from the cluster it will emit the `leave` event.
+The event will also receive a reference to the node that was removed as
+argument:
+
+```js
+raft.on('leave', function leave(node) {
+  console.log(node.name); // 127.0.0.1:8080
+});
+```
+
+### LifeRaft.end()
+
+This signals that the node wants to be removed from the cluster. Once it has
+successfully removed it self, it will emit the `end` event.
+
+```js
+raft.on('end', function () {
+  console.log('Node has shut down.');
+});
+
+raft.end();
+```
+
 ## License
 
 MIT
 
 [Raft]: https://ramcloud.stanford.edu/raft.pdf
+[Browserify]: http://browserify.org/
