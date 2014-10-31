@@ -91,7 +91,7 @@ function Node(options) {
   // this state until receive a message from a Leader or Candidate.
   //
   this.state = Node.FOLLOWER; // Our current state.
-  this.leader = null;         // Leader in our cluster.
+  this.leader = '';           // Leader in our cluster.
   this.term = 0;              // Our current term.
 
   this.initialize(options);
@@ -507,6 +507,7 @@ Node.prototype.join = function join(name, write, fn) {
 
   var node = this.clone({ name: name });
   this.nodes.push(node);
+  this.emit('join', node);
 
   return node;
 };
@@ -532,6 +533,7 @@ Node.prototype.leave = function leave(name) {
   if (~index && node) {
     if (node.end) node.end();
     this.nodes.splice(index, 1);
+    this.emit('leave', node);
   }
 
   return node;
@@ -550,6 +552,7 @@ Node.prototype.end = function end() {
     this.leave(this.nodes[i]);
   }
 
+  this.emit('end');
   this.timers.end();
   this.removeAllListeners();
 

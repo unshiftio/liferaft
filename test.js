@@ -152,12 +152,26 @@ describe('liferaft', function () {
       assume(raft.end()).to.equal(true);
       assume(listeners(raft)).equals(0);
     });
+
+    it('emits an end event', function (next) {
+      raft.on('end', next);
+
+      //
+      // Double end is here to check if the event is not executed multiple
+      // times.
+      //
+      raft.end();
+      raft.end();
+    });
   });
 
   describe('#change', function () {
     it('updates the term and emits a change', function (next) {
-      raft.once('term change', function () {
+      raft.once('term change', function (currently, previously) {
+        assume(currently).equals(raft.term);
+        assume(previously).equals(0);
         assume(raft.term).equals(3);
+
         next();
       });
 
@@ -165,8 +179,11 @@ describe('liferaft', function () {
     });
 
     it('updates the leader and emits a change', function (next) {
-      raft.once('leader change', function () {
+      raft.once('leader change', function (currently, previously) {
+        assume(currently).equals(raft.leader);
         assume(raft.leader).equals('foo');
+        assume(previously).equals('');
+
         next();
       });
 
@@ -174,8 +191,11 @@ describe('liferaft', function () {
     });
 
     it('updates the state and emits a change', function (next) {
-      raft.once('state change', function () {
+      raft.once('state change', function (currently, previously) {
+        assume(previously).equals(Raft.FOLLOWER);
         assume(raft.state).equals(Raft.LEADER);
+        assume(currently).equals(raft.state);
+
         next();
       });
 
@@ -356,6 +376,56 @@ describe('liferaft', function () {
 
       punk.end();
       draft.end();
+    });
+
+    it('allows overriding of config through options', function () {
+      raft.end();
+
+      var Draft = Raft.extend({ write: function () { } })
+        , draft = new Draft({ threshold: 99 })
+        , punk = draft.clone({ threshold: 9 });
+
+      assume(punk.threshold).equals(9);
+
+      punk.end();
+      draft.end();
+    });
+  });
+
+  describe('#join', function () {
+    it('returns the node we added', function () {
+      var node = raft.join();
+
+      assume(node.name).does.not.equal(raft.name);
+      assume(node).does.not.equal(raft);
+      assume(node).is.instanceOf(Raft);
+
+      node.end();
+    });
+
+    it('returns the same instance as the node', function () {
+      raft.end();
+
+      var Draft = Raft.extend({ write: function () { } })
+        , draft = new Draft({ threshold: 99 })
+        , punk = draft.join('foo');
+
+      assume(punk).is.instanceOf(Draft);
+      assume(punk).is.instanceOf(Raft);
+      assume(punk).does.not.equal(draft);
+
+      punk.end();
+      draft.end();
+    });
+
+    it('allows setting of node with a custom name', function () {
+      var node = raft.join('foo');
+
+      assume(node).does.not.equal(raft);
+      assume(node).is.instanceOf(Raft);
+      assume(node.name).equals('foo');
+
+      node.end();
     });
   });
 
