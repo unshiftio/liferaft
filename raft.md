@@ -4,6 +4,21 @@ relevant bits for implementing the algorithm. The document only serves as
 reference material.
 ```
 
+# Table of Contents
+
+- [5: The Raft Consensus Algorithm][5]
+  - [5.1: Raft-basics][5.1]
+  - [5.2: Leader election][5.2]
+  - [5.3: Log replication][5.3]
+  - [5.4: Safety][5.4]
+    - [5.4.1: Election restriction][5.4.1]
+    - [5.4.2: Committing entries from previous terms][5.4.2]
+    - [5.4.3: Safety argument][5.4.3]
+  - [5.5: Follower and candidate crashes][5.5]
+  - [5.6: Timing and availability][5.6]
+- [6: Cluster membership changes][6]
+- [7: Log compaction][7]
+
 # 5 The Raft consensus algorithm
 
 Raft is an algorithm for managing a replicated log of the form described in
@@ -26,16 +41,16 @@ relatively independent subproblems, which are discussed in the subsections that
 follow:
 
 - **Leader election**: a new leader must be chosen when an existing leader fails
-  (Section 5.2).
+  ([Section 5.2][5.2]).
 - **Log replication**: the leader must accept log entries from clients and
   replicate them across the cluster, forcing the other logs to agree with its
-  own (Section 5.3).
+  own ([Section 5.3][5.4]).
 - **Safety**: the key safety property for Raft is the State Machine Safety
   Property in Figure 3: if any server has applied a particular log entry to its
   state machine, then no other server may apply a different command for the same
-  log index. Section 5.4 describes how Raft ensures this property; the solution
-  involves an additional restriction on the election mechanism described in
-  Section 5.2.
+  log index. [Section 5.4][5.4] describes how Raft ensures this property; the
+  solution involves an additional restriction on the election mechanism
+  described in [Section 5.2][5.2].
 
 After presenting the consensus algorithm, this section discusses the issue of
 availability and the role of timing in the system.
@@ -49,16 +64,18 @@ exactly one leader and all of the other servers are followers. Followers are
 passive: they issue no requests on their own but simply respond to requests from
 leaders and candidates. The leader handles all client requests (if a client
 contacts a follower, the follower redirects it to the leader). The third state,
-candidate, is used to elect a new leader as described in Section 5.2. Figure
-4 shows the states and their transitions; the transitions are discussed below.
+candidate, is used to elect a new leader as described in [Section 5.2][5.2].
+Figure 4 shows the states and their transitions; the transitions are discussed
+below.
 
 Raft divides time into terms of arbitrary length, as shown in Figure 5. Terms
 are numbered with consecutive integers. Each term begins with an election, in
-which one or more candidates attempt to become leader as described in Section
-5.2. If a candidate wins the election, then it serves as leader for the rest of
-the term. In some situations an election will result in a split vote. In this
-case the term will end with no leader; a new term (with a new election) will
-begin shortly. Raft ensures that there is at most one leader in a given term.
+which one or more candidates attempt to become leader as described in [Section
+5.2][5.2]. If a candidate wins the election, then it serves as leader for the
+rest of the term. In some situations an election will result in a split vote. In
+this case the term will end with no leader; a new term (with a new election)
+will begin shortly. Raft ensures that there is at most one leader in a given
+term.
 
 Different servers may observe the transitions between terms at different times,
 and in some situations a server may not observe an election or even entire
@@ -73,11 +90,11 @@ number, it rejects the request.
 
 Raft servers communicate using remote procedure calls (RPCs), and the basic
 consensus algorithm requires only two types of RPCs. RequestVote RPCs are
-initiated by candidates during elections (Section 5.2), and AppendEntries RPCs
-are initiated by leaders to replicate log entries and to provide a form of
-heartbeat (Section 5.3). Section 7 adds a third RPC for transferring snapshots
-between servers. Servers retry RPCs if they do not receive a response in
-a timely manner, and they issue RPCs in parallel for best performance.
+initiated by candidates during elections ([Section 5.2][5.2]), and AppendEntries
+RPCs are initiated by leaders to replicate log entries and to provide a form of
+heartbeat ([Section 5.3][5.3]). [Section 7][7] adds a third RPC for transferring
+snapshots between servers. Servers retry RPCs if they do not receive a response
+in a timely manner, and they issue RPCs in parallel for best performance.
 
 ## 5.2 Leader election
 
@@ -103,9 +120,9 @@ These outcomes are discussed separately in the paragraphs below:
 1. A candidate wins an election if it receives votes from a majority of the
    servers in the full cluster for the same term. Each server will vote for at
    most one candidate in a given term, on a first-come-first-served basis (note:
-   Section 5.4 adds an additional restriction on votes). The majority rule
-   ensures that at most one candidate can win the election for a particular term
-   (the Election Safety Property in Figure 3). Once a candidate wins an
+   [Section 5.4][5.4] adds an additional restriction on votes). The majority
+   rule ensures that at most one candidate can win the election for a particular
+   term (the Election Safety Property in Figure 3). Once a candidate wins an
    election, it becomes leader. It then sends heartbeat messages to all of the
    other servers to establish its authority and prevent new elections.
 2. While waiting for votes, a candidate may receive an AppendEntries RPC from
@@ -169,12 +186,13 @@ durable and will eventually be executed by all of the available state machines.
 A log entry is committed once the leader that created the entry has replicated
 it on a majority of the servers (e.g., entry 7 in Figure 6). This also commits
 all preceding entries in the leader’s log, including entries created by previous
-leaders. Section 5.4 discusses some subtleties when applying this rule after
-leader changes, and it also shows that this definition of commitment is safe.
-The leader keeps track of the highest index it knows to be committed, and it
-includes that index in future AppendEntries RPCs (including heartbeats) so that
-the other servers eventually find out. Once a follower learns that a log entry
-is committed, it applies the entry to its local state machine (in log order).
+leaders. [Section 5.4][5.4] discusses some subtleties when applying this rule
+after leader changes, and it also shows that this definition of commitment is
+safe.  The leader keeps track of the highest index it knows to be committed, and
+it includes that index in future AppendEntries RPCs (including heartbeats) so
+that the other servers eventually find out. Once a follower learns that a log
+entry is committed, it applies the entry to its local state machine (in log
+order).
 
 We designed the Raft log mechanism to maintain a high level of coherency between
 the logs on different servers. Not only does this simplify the system’s behavior
@@ -212,8 +230,8 @@ terms.
 
 In Raft, the leader handles inconsistencies by forcing the followers’ logs to
 duplicate its own. This means that conflicting entries in follower logs will be
-overwritten with entries from the leader’s log. Section 5.4 will show that this
-is safe when coupled with one more restriction.
+overwritten with entries from the leader’s log. [Section 5.4][5.4] will show
+that this is safe when coupled with one more restriction.
 
 To bring a follower’s log into consistency with its own, the leader must find
 the latest log entry where the two logs agree, delete any entries in the
@@ -304,13 +322,14 @@ logs end with the same term, then whichever log is longer is more up-to-date.
 
 ### 5.4.2 Committing entries from previous terms
 
-As described in Section 5.3, a leader knows that an entry from its current term
-is committed once that entry is stored on a majority of the servers. If a leader
-crashes before committing an entry, future leaders will attempt to finish
-replicating the entry. However, a leader cannot immediately conclude that an
-entry from a previous term is committed once it is stored on a majority of
-servers. Figure 8 illustrates a situation where an old log entry is stored on
-a majority of servers, yet can still be overwritten by a future leader.
+As described in [Section 5.3][5.3], a leader knows that an entry from its
+current term is committed once that entry is stored on a majority of the
+servers. If a leader crashes before committing an entry, future leaders will
+attempt to finish replicating the entry. However, a leader cannot immediately
+conclude that an entry from a previous term is committed once it is stored on a
+majority of servers. Figure 8 illustrates a situation where an old log entry is
+stored on a majority of servers, yet can still be overwritten by a future
+leader.
 
 To eliminate problems like the one in Figure 8, Raft never commits log entries
 from previous terms by counting replicas. Only log entries from the leader’s
@@ -418,10 +437,10 @@ broadcastTime ≪ electionTimeout ≪ MTBF
 
 In this inequality `broadcastTime` is the average time it takes a server to send
 RPCs in parallel to every server in the cluster and receive their responses;
-`electionTimeout` is the election timeout described in Section 5.2; and `MTBF`
-is the average time between failures for a single server. The broadcast time
-should be an order of magnitude less than the election timeout so that leaders
-can reliably send the heartbeat messages required to keep followers from
+`electionTimeout` is the election timeout described in [Section 5.2][5.2]; and
+`MTBF` is the average time between failures for a single server. The broadcast
+time should be an order of magnitude less than the election timeout so that
+leaders can reliably send the heartbeat messages required to keep followers from
 starting elections; given the randomized approach used for election timeouts,
 this inequality also makes split votes unlikely. The election timeout should be
 a few orders of magnitude less than MTBF so that the system makes steady
@@ -569,7 +588,7 @@ replaces (the last entry the state machine had applied), and _the last included
 term_ is the term of this entry. These are preserved to support the
 AppendEntries consistency check for the first log entry following the snapshot,
 since that entry needs a previous log index and term. To enable cluster
-membership changes (Section 6), the snapshot also includes the latest
+membership changes ([Section 6][6]), the snapshot also includes the latest
 configuration in the log as of last included index. Once a server completes
 writing a snapshot, it may delete all log entries up through the last included
 index, as well as any prior snapshot.
@@ -580,8 +599,8 @@ leader has already discarded the next log entry that it needs to send to
 a follower. Fortunately, this situation is unlikely in normal operation:
 a follower that has kept up with the leader would already have this entry.
 However, an exceptionally slow follower or a new server joining the cluster
-(Section 6) would not. The way to bring such a follower up-to-date is for the
-leader to send it a snapshot over the network.
+([Section 6][6]) would not. The way to bring such a follower up-to-date is for
+the leader to send it a snapshot over the network.
 
 The leader uses a new RPC called InstallSnapshot to send snapshots to followers
 that are too far behind; see Figure 13. When a follower receives a snapshot with
@@ -629,3 +648,16 @@ There are two more issues that impact snapshotting performance.
    support this. Alternatively, the operating system’s copy-on-write support
    (e.g., fork on Linux) can be used to create an in-memory snapshot of the
    entire state machine (our implementation uses this approach).
+
+[5]: #5-the-raft-consensus-algorithm
+[5.1]: #51-raft-basics
+[5.2]: #52-leader-election
+[5.3]: #53-log-replication
+[5.4]: #54-safety
+[5.4.1]: #541-election-restriction
+[5.4.2]: #542-committing-entries-from-previous-terms
+[5.4.3]: #543-safety-argument
+[5.5]: #55-follower-and-candidate-crashes
+[5.6]: #56-timing-and-availability
+[6]: #6-cluster-membership-changes
+[7]: #7-log-compaction
