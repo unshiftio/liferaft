@@ -78,6 +78,7 @@ function Node(options) {
     granted: 0                // How many votes we're granted to us.
   };
 
+  this.write = this.write || options.write || null;
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
   this.timers = new Tick(this);
@@ -292,6 +293,13 @@ Node.prototype.initialize = function initialize(options) {
   });
 
   //
+  // We do not need to execute the functionality below if we have a write method
+  // assigned to our selfs. This prevents us from timing out and other nasty
+  // stuff.
+  //
+  if (this.write) return;
+
+  //
   // Setup the log & appends. Assume that if we're given a function log that it
   // needs to be initialized as it requires access to our node instance so it
   // can read our information like our leader, state, term etc.
@@ -365,7 +373,7 @@ Node.prototype.change = function change(changed) {
  *
  * @param {String|Number} duration Time it would take for the heartbeat to timeout.
  * @returns {Node}
- * @api public
+ * @api private
  */
 Node.prototype.heartbeat = function heartbeat(duration) {
   duration = duration || this.timeout('beat');
@@ -394,7 +402,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
  *
  * @param {String} which Type of timeout we want to generate.
  * @returns {Number}
- * @api public
+ * @api private
  */
 Node.prototype.timeout = function timeout(which) {
   var times = this[which];
@@ -410,7 +418,7 @@ Node.prototype.timeout = function timeout(which) {
  * state, vote our selfs and ask all others nodes to vote for us.
  *
  * @returns {Node}
- * @api public
+ * @api private
  */
 Node.prototype.promote = function promote() {
   this.change({
@@ -427,11 +435,24 @@ Node.prototype.promote = function promote() {
   this.votes.granted = 1;
 
   //
+  // Broadcast the voting request to all connected nodes in your private
+  // cluster.
+  //
+  var packet = this.packet('vote')
+    , i = 0;
+
+  for (; i < this.nodes.length; i++) {
+    this.nodes[i].write(packet);
+  }
+
+  //
   // Set the election timeout. This gives the nodes some time to reach
   // consensuses about who they want to vote for. If no consensus has been
   // reached within the set timeout we will attempt it again.
   //
-  this.timers.setTimeout('election', this.promote, this.timeout('election'));
+  this.timers
+    .clear() // Clear all old timers, this one is the most important now.
+    .setTimeout('election', this.promote, this.timeout('election'));
 
   return this;
 };
@@ -472,6 +493,7 @@ Node.prototype.packet = function wrap(type, data) {
  *
  * @param {Object} options Configuration that should override the default config.
  * @returns {Node} The newly created instance.
+ * @api public
  */
 Node.prototype.clone = function clone(options) {
   options = options || {};
@@ -502,12 +524,15 @@ Node.prototype.clone = function clone(options) {
  * @returns {Node} The node we created and that joined our cluster.
  * @api public
  */
-Node.prototype.join = function join(name, write, fn) {
+Node.prototype.join = function join(name, write) {
   if ('function' === type(name)) {
-    fn = write; write = name; name = null;
+    write = name; name = null;
   }
 
-  var node = this.clone({ name: name });
+  var node = this.clone({
+    write: write,   // Function that receives our writes.
+    name: name      // A custom name for the node we added.
+  });
 
   node.once('end', function end() {
     this.leave(node);
