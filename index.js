@@ -96,7 +96,11 @@ function Node(options) {
   this.leader = '';           // Leader in our cluster.
   this.term = 0;              // Our current term.
 
-  this.initialize(options);
+  if ('function' === typeof this.initialize) {
+    this.once('initialize', this.initialize);
+  }
+
+  this._initialize(options);
 }
 
 //
@@ -129,7 +133,7 @@ Node.STOPPED   = 4;   // Assume we're dead.
  * @param {Object} options The configuration you passed in the constructor.
  * @api private
  */
-Node.prototype.initialize = function initialize(options) {
+Node.prototype._initialize = function initialize(options) {
   //
   // Reset our vote as we're starting a new term. Votes only last one term.
   //
@@ -297,7 +301,7 @@ Node.prototype.initialize = function initialize(options) {
   // assigned to our selfs. This prevents us from timing out and other nasty
   // stuff.
   //
-  if (this.write) return;
+  if (this.write) return this.emit('initialize');
 
   //
   // Setup the log & appends. Assume that if we're given a function log that it
@@ -313,7 +317,7 @@ Node.prototype.initialize = function initialize(options) {
   // So that if we don't hear anything from a leader we can promote our selfs to
   // a candidate state.
   //
-  this.heartbeat();
+  this.heartbeat().emit('initialize');
 };
 
 /**

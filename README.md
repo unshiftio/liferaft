@@ -76,6 +76,7 @@ Event               | Description
 `leave`             | Node has been removed from the cluster.
 `join`              | Node has been added to the cluster.
 `end`               | This Raft instance has ended.
+`initialize`        | The node has been fully initialized.
 
 ### LifeRaft.promote()
 
