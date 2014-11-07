@@ -370,7 +370,7 @@ Node.prototype.eternity = function eternity(attempt, fn) {
     , node = this;
 
   (function again(err, data) {
-    if (!err && arguments.length) return fn(err, data);
+    if (!err) return fn(err, data);
 
     var next = one(again);
 
@@ -378,7 +378,7 @@ Node.prototype.eternity = function eternity(attempt, fn) {
     node.timers.setTimeout(uuid, function timeout() {
       next(new Error('Timed out'));
     }, node.rpctimeout);
-  }());
+  }(1));
 
   return this;
 };

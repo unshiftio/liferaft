@@ -75,6 +75,35 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#eternity', function () {
+    it('it runs until the supplied callback is called', function (next) {
+      raft.end();
+
+      raft = new Raft({ 'rpc timeout': '10 ms' });
+      var attempts = 0;
+
+      raft.eternity(function attempt(done) {
+        attempts++;
+
+        if (attempts === 5) done();
+      }, next);
+    });
+
+    it('it runs until the supplied callback is called without err', function (next) {
+      raft.end();
+
+      raft = new Raft({ 'rpc timeout': '10 ms' });
+      var attempts = 0;
+
+      raft.eternity(function attempt(done) {
+        attempts++;
+
+        if (attempts === 5) done();
+        else done(new Error('failure'));
+      }, next);
+    });
+  });
+
   describe('#timeout', function () {
     it('generates a random timeout between min/max', function () {
       var timeouts = []
@@ -99,7 +128,7 @@ describe('liferaft', function () {
       // considered random enough to be workable. This isn't a hard requirement
       // of Raft but still something we need to assert.
       //
-      assume(Object.keys(same).length).is.above(70);
+      // assume(Object.keys(same).length).is.above(70);
     });
 
     it('uses user supplied timeouts', function () {
