@@ -146,6 +146,25 @@ raft.on('end', function () {
 raft.end();
 ```
 
+## Extending
+
+LifeRaft uses the same pattern as Backbone.js to extend it's prototypes. It
+exposes an `.extend` method on the constructor. When you call this method it
+will return a fresh LifeRaft constructor with the newly applied prototypes and
+properties. So these extends will not affect the default instance. This extend
+method accepts 2 arguments.
+
+1. Object with properties that should be merged with the `prototype`.
+2. Object with properties that should be merged with the constructor.
+
+```js
+var LifeBoat = LifeRaft.extend({
+  foo: function foo() {
+    return 'bar';
+  }
+});
+```
+
 ## License
 
 MIT
