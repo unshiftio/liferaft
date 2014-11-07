@@ -75,14 +75,14 @@ describe('liferaft', function () {
     });
   });
 
-  describe('#eternity', function () {
+  describe('#indefinitely', function () {
     it('it runs until the supplied callback is called', function (next) {
       raft.end();
 
       raft = new Raft({ 'rpc timeout': '10 ms' });
       var attempts = 0;
 
-      raft.eternity(function attempt(done) {
+      raft.indefinitely(function attempt(done) {
         attempts++;
 
         if (attempts === 5) done();
@@ -95,7 +95,7 @@ describe('liferaft', function () {
       raft = new Raft({ 'rpc timeout': '10 ms' });
       var attempts = 0;
 
-      raft.eternity(function attempt(done) {
+      raft.indefinitely(function attempt(done) {
         attempts++;
 
         if (attempts === 5) done();

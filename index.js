@@ -357,15 +357,14 @@ Node.prototype.majority = function majority() {
 };
 
 /**
- * Attempt to run a function for eternity. When it times out we're just going to
- * try it again.
+ * Attempt to run a function indefinitely until the callback is called.
  *
- * @param {Function} attempt Function that needs to be attempted until eternity.
+ * @param {Function} attempt Function that needs to be attempted.
  * @param {Function} fn Completion callback.
  * @returns {Node}
  * @api public
  */
-Node.prototype.eternity = function eternity(attempt, fn) {
+Node.prototype.indefinitely = function indefinitely(attempt, fn) {
   var uuid = UUID()
     , node = this;
 
