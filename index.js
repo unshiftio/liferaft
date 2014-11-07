@@ -1,7 +1,8 @@
 'use strict';
 
 var EventEmitter = require('eventemitter3')
-  , Tick = require('tick-tock');
+  , Tick = require('tick-tock')
+  , one = require('one-time');
 
 /**
  * Proper type checking.
@@ -53,6 +54,11 @@ function nope() {}
  * - `threshold`: Threshold when the heartbeat RTT is close to the election
  *   timeout.
  * - `Log`: A Log constructor that should be used to store commit logs.
+ * - `rpc timeout`: How long it can take before we retry an RPC request.
+ *
+ * Please note, when adding new options make sure that you also update the
+ * `Node#join` method so it will correctly copy the new option to the clone as
+ * well.
  *
  * @constructor
  * @param {Object} options Node configuration.
@@ -78,6 +84,7 @@ function Node(options) {
     granted: 0                // How many votes we're granted to us.
   };
 
+  this.rpctimeout = Tick.parse(options['rpc timeout'] || '500 ms');
   this.write = this.write || options.write || null;
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
@@ -147,7 +154,7 @@ Node.prototype._initialize = function initialize(options) {
   // the heartbeat will automatically be broadcasted to users as well.
   //
   this.on('state change', function change(currently, previously) {
-    this.timers.clear();
+    this.timers.clear('heartbeat, election');
     this.heartbeat();
   });
 
@@ -288,6 +295,12 @@ Node.prototype._initialize = function initialize(options) {
       break;
 
       //
+      // RPC command
+      //
+      case 'exec':
+      break;
+
+      //
       // Unknown event, we have no idea how to process this so we're going to
       // return an error.
       //
@@ -341,6 +354,33 @@ Node.prototype.quorum = function quorum(responses) {
  */
 Node.prototype.majority = function majority() {
   return Math.ceil(this.nodes.length / 2) + 1;
+};
+
+/**
+ * Attempt to run a function for eternity. When it times out we're just going to
+ * try it again.
+ *
+ * @param {Function} attempt Function that needs to be attempted until eternity.
+ * @param {Function} fn Completion callback.
+ * @returns {Node}
+ * @api public
+ */
+Node.prototype.eternity = function eternity(attempt, fn) {
+  var uuid = UUID()
+    , node = this;
+
+  (function again(err, data) {
+    if (!err && arguments.length) return fn(err, data);
+
+    var next = one(again);
+
+    attempt(next);
+    node.timers.setTimeout(uuid, function timeout() {
+      next(new Error('Timed out'));
+    }, node.rpctimeout);
+  }());
+
+  return this;
 };
 
 /**
@@ -455,7 +495,7 @@ Node.prototype.promote = function promote() {
   // reached within the set timeout we will attempt it again.
   //
   this.timers
-    .clear() // Clear all old timers, this one is the most important now.
+    .clear('heartbeat, election')
     .setTimeout('election', this.promote, this.timeout('election'));
 
   return this;
