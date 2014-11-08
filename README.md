@@ -7,9 +7,6 @@ Status](http://img.shields.io/travis/unshiftio/liferaft/master.svg?style=flat-sq
 Status](http://img.shields.io/coveralls/unshiftio/liferaft/master.svg?style=flat-square)](https://coveralls.io/r/unshiftio/liferaft?branch=master)[![IRC
 channel](http://img.shields.io/badge/IRC-irc.freenode.net%23unshift-00a8ff.svg?style=flat-square)](http://webchat.freenode.net/?channels=unshift)
 
-[![Build Status](https://travis-ci.org/unshiftio/liferaft.svg?branch=master)](https://travis-ci.org/unshiftio/liferaft)
-[![Coverage Status](https://coveralls.io/repos/unshiftio/liferaft/badge.png?branch=master)](https://coveralls.io/r/unshiftio/liferaft?branch=master)
-
 `liferaft` is an JavaScript implementation of the [Raft] consensus algorithm. 
 
 ## Installation
