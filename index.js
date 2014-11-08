@@ -361,23 +361,34 @@ Node.prototype.majority = function majority() {
  *
  * @param {Function} attempt Function that needs to be attempted.
  * @param {Function} fn Completion callback.
+ * @param {String} timeout Which timeout should we use.
  * @returns {Node}
  * @api public
  */
-Node.prototype.indefinitely = function indefinitely(attempt, fn) {
+Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
   var uuid = UUID()
     , node = this;
 
-  (function again(err, data) {
-    if (!err) return fn(err, data);
-
-    var next = one(again);
+  (function again() {
+    //
+    // We need to force async execution here because we do not want to saturate
+    // the event loop with sync executions. We know that it's important these
+    // functions are retried indefinitely but if it's called synchronously we will
+    // not have time to receive data or updates.
+    //
+    var next = one(function force(err, data) {
+      node.timers.setImmediate(uuid +'@async', function async() {
+        if (err) return again();
+        fn(err, data);
+      });
+    });
 
     attempt(next);
+
     node.timers.setTimeout(uuid, function timeout() {
-      next(new Error('Timed out'));
-    }, node.rpctimeout);
-  }(1));
+      next(new Error('Timed out, attempting to retry again'));
+    }, this.timeout(timeout));
+  }());
 
   return this;
 };
