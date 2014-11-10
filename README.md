@@ -187,6 +187,29 @@ var LifeBoat = LifeRaft.extend({
 });
 ```
 
+### Initialization
+
+When you extend the `LifeRaft` instance you can assign a special `initialize`
+method. This method will be called when our `LifeRaft` code has been fully
+initialized and we're ready to initialize your code. Please bare in mind that
+this is a synchronous invocation and that we will start heart beat timeout after
+the execution of the function. This method is ideal for implementing your own
+transport technology. The function is invoked with one argument, these are the
+options that were used to construct the instance. If no options were provided we
+will default to empty object so this argument is always an available.
+
+```js
+var LifeBoat = LifeRaft.extend({
+  socket: null,
+  initialize: function initialize(options) {
+    this.socket = new CustomTransport(this.name);
+  }
+});
+```
+
+In parallel to the execution of your `initialize` method we also emit an
+`initialize` event. This receives the same amount of arguments.
+
 ## License
 
 MIT
