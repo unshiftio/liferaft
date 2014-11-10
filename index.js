@@ -5,17 +5,6 @@ var EventEmitter = require('eventemitter3')
   , one = require('one-time');
 
 /**
- * Proper type checking.
- *
- * @param {Mixed} of Thing we want to know the type of.
- * @returns {String} The type.
- * @api private
- */
-function type(of) {
-  return Object.prototype.toString.call(of).slice(8, -1).toLowerCase();
-}
-
-/**
  * Generate a somewhat unique UUID.
  *
  * @see stackoverflow.com/q/105034
@@ -103,7 +92,7 @@ function Node(options) {
   this.leader = '';           // Leader in our cluster.
   this.term = 0;              // Our current term.
 
-  if ('function' === typeof this.initialize) {
+  if ('function' === this.type(this.initialize)) {
     this.once('initialize', this.initialize);
   }
 
@@ -164,7 +153,7 @@ Node.prototype._initialize = function initialize(options) {
   this.on('data', function incoming(packet, write) {
     write = write || nope;
 
-    if ('object' !== type(packet)) {
+    if ('object' !== this.type(packet)) {
       return write(new Error('Invalid packet received'));
     }
 
@@ -305,7 +294,11 @@ Node.prototype._initialize = function initialize(options) {
       // return an error.
       //
       default:
-        write(new Error('Unknown message type: '+ packet.type));
+        if (this.listeners('rpc').length) {
+          this.emit('rpc', packet, write);
+        } else {
+          write(new Error('Unknown message type: '+ packet.type));
+        }
     }
   });
 
@@ -321,7 +314,7 @@ Node.prototype._initialize = function initialize(options) {
   // needs to be initialized as it requires access to our node instance so it
   // can read our information like our leader, state, term etc.
   //
-  if ('function' === type(this.Log)) {
+  if ('function' === this.type(this.Log)) {
     this.log = new this.Log(this, options);
   }
 
@@ -334,6 +327,17 @@ Node.prototype._initialize = function initialize(options) {
 };
 
 /**
+ * Proper type checking.
+ *
+ * @param {Mixed} of Thing we want to know the type of.
+ * @returns {String} The type.
+ * @api private
+ */
+Node.prototype.type = function type(of) {
+  return Object.prototype.toString.call(of).slice(8, -1).toLowerCase();
+};
+
+/**
  * Check if we've reached our quorum (a.k.a. minimum amount of votes requires
  * for a voting round to be considered valid) for the given amount of votes.
  *
@@ -343,6 +347,7 @@ Node.prototype._initialize = function initialize(options) {
  */
 Node.prototype.quorum = function quorum(responses) {
   if (!this.nodes.length || !responses) return false;
+
   return responses >= this.majority();
 };
 
@@ -379,15 +384,16 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
     var next = one(function force(err, data) {
       node.timers.setImmediate(uuid +'@async', function async() {
         if (err) return again();
+
         fn(err, data);
       });
     });
 
     attempt(next);
 
-    node.timers.setTimeout(uuid, function timeout() {
+    node.timers.setTimeout(uuid, function timeoutfn() {
       next(new Error('Timed out, attempting to retry again'));
-    }, this.timeout(timeout));
+    }, +timeout || node.timeout(timeout));
   }());
 
   return this;
@@ -459,7 +465,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
  * @api private
  */
 Node.prototype.timeout = function timeout(which) {
-  var times = this[which];
+  var times = this[which || 'election'];
 
   return Math.floor(Math.random() * (times.max - times.min + 1) + times.min);
 };
@@ -579,7 +585,7 @@ Node.prototype.clone = function clone(options) {
  * @api public
  */
 Node.prototype.join = function join(name, write) {
-  if ('function' === type(name)) {
+  if ('function' === this.type(name)) {
     write = name; name = null;
   }
 
