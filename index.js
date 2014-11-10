@@ -53,10 +53,13 @@ function nope() {}
  * @param {Object} options Node configuration.
  * @api public
  */
-function Node(options) {
+function Node(name, options) {
   if (!(this instanceof Node)) return new Node(options);
 
   options = options || {};
+
+  if ('object' === typeof name) options = name;
+  else if (!options.name) options.name = name;
 
   this.election = {
     min: Tick.parse(options['election min'] || '150 ms'),
@@ -105,6 +108,7 @@ function Node(options) {
 Node.extend = require('extendible');
 Node.prototype = new EventEmitter();
 Node.prototype.constructor = Node;
+Node.prototype.emits = require('emits');
 
 /**
  * Raft §5.1:
@@ -323,7 +327,11 @@ Node.prototype._initialize = function initialize(options) {
   // So that if we don't hear anything from a leader we can promote our selfs to
   // a candidate state.
   //
-  this.heartbeat().emit('initialize');
+  // We want to call the `initialize` event before starting a heartbeat so
+  // implementors have some time to start listening for incoming ping packets.
+  //
+  this.emit('initialize');
+  this.heartbeat();
 };
 
 /**
