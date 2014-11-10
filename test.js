@@ -631,7 +631,14 @@ describe('liferaft', function () {
           // Feed raft some "nodes" so it can actually reach a consensus when it
           // received a majority of the votes.
           //
-          raft.nodes.push(1, 2, 3, 4, 5);
+          raft.nodes.push(
+            { write: function () {} },
+            { write: function () {} },
+            { write: function () {} },
+            { write: function () {} },
+            { write: function () {} }
+          );
+
           raft.promote();
 
           raft.once('state change', function (currently, previously) {
