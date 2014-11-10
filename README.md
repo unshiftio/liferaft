@@ -77,6 +77,29 @@ Event               | Description
 `end`               | This Raft instance has ended.
 `initialize`        | The node has been fully initialized.
 
+### LifeRaft.packet()
+
+Generate a new packet object that can be transfered to a client. The method
+accepts 2 arguments:
+
+1. `type`, Type of packet that we want to transfer.
+2. `data`, Data that should be transfered.
+
+```js
+var packet = raft.packet('vote', { foo: 'bar' });
+```
+
+These packages will contain the following information:
+
+- `state` If we are a `LEADER`, `FOLLOWER` or `CANDIDATE`
+- `term` Our current term.
+- `name` The name of this node.
+- `leader` The name of our leader.
+- `last` If logs are enabled we also include the last committed term and index.
+
+And of course also the `type` which is the type you passed this function in and
+the `data` that you want to send.
+
 ### LifeRaft.promote()
 
 **Private method, use with caution**
