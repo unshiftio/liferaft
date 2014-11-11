@@ -397,7 +397,10 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
       });
     });
 
-    attempt(next);
+    //
+    // Ensure that the assigned callback has the same context as our node.
+    //
+    attempt.call(node, next);
 
     node.timers.setTimeout(uuid, function timeoutfn() {
       next(new Error('Timed out, attempting to retry again'));
@@ -458,9 +461,45 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     }
 
     //
-    // @TODO We're the LEADER so we should be broadcasting.
+    // @TODO this is a temporary hack to get the cluster running. According to
+    // the raft spec we should be sending empty append requests.
     //
+    this.broadcast(this.packet('append'), 'beat');
   }, duration);
+
+  return this;
+};
+
+/**
+ * Broadcast a packet to every connected node client.
+ *
+ * @param {Object} packet Packet that needs be transmitted.
+ * @param {Number|String} timeout Timeout for the message sending.
+ * @returns {Node}
+ * @api private
+ */
+Node.prototype.broadcast = function broadcast(packet, timeout) {
+  var node = this;
+
+  for (var i = 0; i < node.nodes.length; i++) {
+    (function wrapper(client, data) {
+      node.indefinitely(function attempt(next) {
+        client.write(data, function written(err, data) {
+          if (err) return next(err);
+
+          //
+          // OK, so this is the strange part here. We've broadcasted message and
+          // got back a reply. This reply contained data so we need to process
+          // it. What if the data is incorrect? Then we have no way at the
+          // moment to send back reply to a reply to the server.
+          //
+          if (data) node.emits('data');
+
+          next();
+        });
+      }, nope, timeout);
+    }(node.nodes[i], packet));
+  }
 
   return this;
 };
@@ -509,9 +548,7 @@ Node.prototype.promote = function promote() {
   var packet = this.packet('vote')
     , i = 0;
 
-  for (; i < this.nodes.length; i++) {
-    this.nodes[i].write(packet);
-  }
+  this.broadcast(this.packet('vote'), 'election');
 
   //
   // Set the election timeout. This gives the nodes some time to reach
