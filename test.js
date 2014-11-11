@@ -73,6 +73,28 @@ describe('liferaft', function () {
 
       assume(raft.name).equals('foo');
     });
+
+    it('accepts the name as first argument', function () {
+      raft.end();
+
+      raft = new Raft('foo');
+      assume(raft.name).equals('foo');
+    });
+
+    it('will call the initialization function if exists', function (next) {
+      var MyRaft = Raft.extend({
+        initialize: function () {
+          var node = this;
+
+          setTimeout(function () {
+            node.end();
+            next();
+          }, 0);
+        }
+      });
+
+      new MyRaft();
+    });
   });
 
   describe('#indefinitely', function () {
@@ -535,6 +557,17 @@ describe('liferaft', function () {
           state: Raft.LEADER,
           term: 41
         });
+      });
+    });
+
+    describe('rpc', function () {
+      it('should emit an rpc event when an unknown package arrives', function (next) {
+        raft.once('rpc', function (packet) {
+          assume(packet.type).equals('shizzle');
+          next();
+        });
+
+        raft.emit('data', raft.packet('shizzle'));
       });
     });
   });
