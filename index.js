@@ -311,7 +311,7 @@ Node.prototype._initialize = function initialize(options) {
   // assigned to our selfs. This prevents us from timing out and other nasty
   // stuff.
   //
-  if (this.write) return this.emit('initialize');
+  // if (this.write) return this.emit('initialize');
 
   //
   // Setup the log & appends. Assume that if we're given a function log that it
@@ -538,7 +538,6 @@ Node.prototype.packet = function wrap(type, data) {
     state:  this.state,   // So you know if we're a leader, candidate or follower.
     term:   this.term,    // Our current term so we can find mis matches.
     name:   this.name,    // Name of the sender.
-    data:   data,         // Custom data we send.
     type:   type,         // Message type.
     leader: this.leader,  // Who is our leader.
   };
@@ -551,6 +550,8 @@ Node.prototype.packet = function wrap(type, data) {
   // @TODO point to term of last commit entry.
   //
   if (this.log) packet.last = { term: this.term, index: this.log.index };
+  if (arguments.length === 2) packet.data = data;
+
   return packet;
 };
 
