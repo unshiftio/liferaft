@@ -311,7 +311,7 @@ Node.prototype._initialize = function initialize(options) {
   // assigned to our selfs. This prevents us from timing out and other nasty
   // stuff.
   //
-  // if (this.write) return this.emit('initialize');
+  if (this.write) return this.emit('initialize');
 
   //
   // Setup the log & appends. Assume that if we're given a function log that it
