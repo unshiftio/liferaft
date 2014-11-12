@@ -243,6 +243,14 @@ Node.prototype._initialize = function initialize(options) {
         this.votes.for = packet.name;
         this.emit('vote', packet, true);
         write(this.packet('voted', { granted: true }));
+
+        //
+        // We've accepted someone as potential new leader, so we should reset
+        // our heartbeat to prevent this node from timing out after voting.
+        // Which would again increment the term causing us to be next CANDIDATE
+        // and invalidates the request we just got, so that's silly willy.
+        //
+        this.heartbeat();
       break;
 
       //
@@ -253,7 +261,7 @@ Node.prototype._initialize = function initialize(options) {
         // Only accepts votes while we're still in a CANDIDATE state.
         //
         if (Node.CANDIDATE !== this.state) {
-          return write(this.packet('error', 'No longer a candidate'));
+          return write(this.packet('error', 'No longer a candidate, ignoring vote'));
         }
 
         //
@@ -264,7 +272,7 @@ Node.prototype._initialize = function initialize(options) {
 
         //
         // Check if we've received the minimal amount of votes required for this
-        // current voting round to be considered valid
+        // current voting round to be considered valid.
         //
         if (this.quorum(this.votes.granted)) {
           this.change({ leader: this.name, state: Node.LEADER });
