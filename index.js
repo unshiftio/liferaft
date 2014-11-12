@@ -199,6 +199,7 @@ Node.prototype._initialize = function initialize(options) {
     // heartbeat.
     //
     if (Node.LEADER === packet.state) {
+      if (packet.name !== this.leader) this.change({ leader: packet.leader });
       this.heartbeat();
     }
 
