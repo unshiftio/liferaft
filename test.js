@@ -756,4 +756,87 @@ describe('liferaft', function () {
       });
     });
   });
+
+  //
+  // Batch of tests which tests the clustering capabilities of liferaft as
+  // everything works different when you start working with massive clusters.
+  //
+  return;
+  describe('cluster', function () {
+    var port = 8088
+      , net = require('net')
+      , ndjson = require('ndjson');
+
+    var Paddle = Raft.extend({
+      /**
+       * Initialize the server so we can receive connections.
+       *
+       * @param {Object} options Received optiosn when constructing the client.
+       * @api private
+       */
+      initialize: function initialize(options) {
+        var raft = this;
+
+        var server = net.createServer(function incoming(socket) {
+          socket.pipe(ndjson.parse()).on('data', function (packet) {
+            console.log('packte', packet);
+            raft.emit('data', packet);
+          });
+        }).listen(this.name);
+
+        this.once('end', function enc() {
+          server.close();
+        });
+      },
+
+      /**
+       * Write to the connection.
+       *
+       * @param {Object} packet Data to be transfered.
+       * @param {Function} fn Completion callback.
+       * @api public
+       */
+      write: function write(packet, fn) {
+        var socket = net.connect(this.name)
+          , stringify = ndjson.stringify();
+
+        socket.pipe(stringify).pipe(socket);
+
+        stringify.write(packet, fn);
+        stringify.end();
+      }
+    });
+
+    it('reaches consensus about leader election', function (next) {
+      var ports = [port++, port++, port++, port++]
+        , nodes = []
+        , node;
+
+      for (var i = 0; i < ports.length; i++) {
+        node = new Paddle(ports[i]);
+        nodes.push(node);
+
+        for (var j = 0; j < ports.length; j++) {
+          if (ports[j] === ports[i]) continue;
+
+          node.join(ports[j]);
+        }
+      }
+
+      //
+      // Force a node in to a candidate role to ensure that this node will be
+      // promoted as leader as it's the first to be alive.
+      //
+      node.promote();
+      node.once('state change', function changed(state) {
+        assume(state).equals(Paddle.LEADER);
+
+        for (var i = 0; i < ports.length; i++) {
+          nodes[i].end();
+        }
+
+        next();
+      });
+    });
+  });
 });
