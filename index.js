@@ -217,7 +217,7 @@ Node.prototype._initialize = function initialize(options) {
         //
         if (this.votes.for && this.votes.for !== packet.name) {
           this.emit('vote', packet, false);
-          return write(this.packet('vote', { granted: false }));
+          return write(this.packet('voted', { granted: false }));
         }
 
         //
@@ -232,7 +232,7 @@ Node.prototype._initialize = function initialize(options) {
           || this.term > packet.last.term
         )) {
           this.emit('vote', packet, false);
-          return write(this.packet('vote', { granted: false }));
+          return write(this.packet('voted', { granted: false }));
         }
 
         //
@@ -242,7 +242,7 @@ Node.prototype._initialize = function initialize(options) {
         //
         this.votes.for = packet.name;
         this.emit('vote', packet, true);
-        write(this.packet('vote', { granted: true }));
+        write(this.packet('voted', { granted: true }));
       break;
 
       //
