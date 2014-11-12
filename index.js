@@ -493,7 +493,7 @@ Node.prototype.broadcast = function broadcast(packet, timeout) {
           // it. What if the data is incorrect? Then we have no way at the
           // moment to send back reply to a reply to the server.
           //
-          if (data) node.emits('data');
+          if (data) node.emit('data', data);
 
           next();
         });

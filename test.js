@@ -120,6 +120,58 @@ describe('liferaft', function () {
     });
   });
 
+  describe('#broadcast', function () {
+    it('calls all joined nodes', function (next) {
+      var pattern = '';
+
+      raft.join(function () { pattern += 'a'; });
+      raft.join(function () { pattern += 'b'; });
+      raft.join(function () { pattern += 'c'; });
+
+      raft.broadcast(raft.packet('foo'), 1000);
+
+      setTimeout(function () {
+        assume(pattern).equals('abc');
+        next();
+      }, 20);
+    });
+
+    it('attempts writing packet again if write failed', function (next) {
+      var packet = raft.packet('foo')
+        , called = false;
+
+      raft.join(function (data, fn) {
+        assume(fn).is.a('function');
+        assume(data).equal(packet);
+
+        if (!called) {
+          called = true;
+          return fn(new Error('I failed to process fn'));
+        }
+
+        next();
+      });
+
+      raft.broadcast(packet);
+    });
+
+    it('emits the `data` event with response', function (next) {
+      var node = raft.join(function (data, fn) {
+        fn(undefined, node.packet('external'));
+      });
+
+      raft.on('rpc', function (packet) {
+        assume(packet.type).equals('external');
+        assume(packet.name).equals(node.name);
+        assume(raft.name).does.not.equal(node.name);
+
+        next();
+      });
+
+      raft.broadcast(raft.packet('foo'));
+    });
+  });
+
   describe('#timeout', function () {
     it('generates a random timeout between min/max', function () {
       var timeouts = []
