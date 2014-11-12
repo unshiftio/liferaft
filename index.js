@@ -43,7 +43,9 @@ function nope() {}
  * - `threshold`: Threshold when the heartbeat RTT is close to the election
  *   timeout.
  * - `Log`: A Log constructor that should be used to store commit logs.
- * - `rpc timeout`: How long it can take before we retry an RPC request.
+ * - `state`: Our initial state. This is a private property and should not be
+ *   set you unless you know what your are doing but as you want to use this
+ *   property I highly doubt that that..
  *
  * Please note, when adding new options make sure that you also update the
  * `Node#join` method so it will correctly copy the new option to the clone as
@@ -76,7 +78,6 @@ function Node(name, options) {
     granted: 0                // How many votes we're granted to us.
   };
 
-  this.rpctimeout = Tick.parse(options['rpc timeout'] || '500 ms');
   this.write = this.write || options.write || null;
   this.threshold = options.threshold || 0.8;
   this.name = options.name || UUID();
@@ -91,9 +92,9 @@ function Node(name, options) {
   // When a server starts, it's always started as Follower and it will remain in
   // this state until receive a message from a Leader or Candidate.
   //
-  this.state = Node.FOLLOWER; // Our current state.
-  this.leader = '';           // Leader in our cluster.
-  this.term = 0;              // Our current term.
+  this.state = options.state || Node.FOLLOWER;    // Our current state.
+  this.leader = '';                               // Leader in our cluster.
+  this.term = 0;                                  // Our current term.
 
   if ('function' === this.type(this.initialize)) {
     this.once('initialize', this.initialize);
@@ -124,6 +125,7 @@ Node.LEADER    = 1;   // We're selected as leader process.
 Node.CANDIDATE = 2;   // We want to be promoted to leader.
 Node.FOLLOWER  = 3;   // We're just following a leader.
 Node.STOPPED   = 4;   // Assume we're dead.
+Node.CHILD     = 5;   // Child node of an instance.
 
 /**
  * Initialize the node and start listening to the various of events we're
@@ -307,11 +309,10 @@ Node.prototype._initialize = function initialize(options) {
   });
 
   //
-  // We do not need to execute the functionality below if we have a write method
-  // assigned to our selfs. This prevents us from timing out and other nasty
-  // stuff.
+  // We do not need to execute the rest of the functionality below as we're
+  // currently running as "child" node of the cluster not as the "root" node.
   //
-  if (this.write) return;
+  if (Node.CHILD === this.state) return;
 
   //
   // Setup the log & appends. Assume that if we're given a function log that it
@@ -481,24 +482,33 @@ Node.prototype.heartbeat = function heartbeat(duration) {
 Node.prototype.broadcast = function broadcast(packet, timeout) {
   var node = this;
 
+  /**
+   * A small wrapper to force indefinitely sending of a certain packet.
+   *
+   * @param {Node} client Node we need to write a message to.
+   * @param {Object} data Message that needs to be send.
+   * @api private
+   */
+  function wrapper(client, data) {
+    node.indefinitely(function attempt(next) {
+      client.write(data, function written(err, data) {
+        if (err) return next(err);
+
+        //
+        // OK, so this is the strange part here. We've broadcasted message and
+        // got back a reply. This reply contained data so we need to process
+        // it. What if the data is incorrect? Then we have no way at the
+        // moment to send back reply to a reply to the server.
+        //
+        if (data) node.emit('data', data);
+
+        next();
+      });
+    }, nope, timeout);
+  }
+
   for (var i = 0; i < node.nodes.length; i++) {
-    (function wrapper(client, data) {
-      node.indefinitely(function attempt(next) {
-        client.write(data, function written(err, data) {
-          if (err) return next(err);
-
-          //
-          // OK, so this is the strange part here. We've broadcasted message and
-          // got back a reply. This reply contained data so we need to process
-          // it. What if the data is incorrect? Then we have no way at the
-          // moment to send back reply to a reply to the server.
-          //
-          if (data) node.emit('data', data);
-
-          next();
-        });
-      }, nope, timeout);
-    }(node.nodes[i], packet));
+    wrapper(node.nodes[i], packet);
   }
 
   return this;
@@ -605,12 +615,12 @@ Node.prototype.clone = function clone(options) {
   options = options || {};
 
   var node = {
-    'election min': this.election.min,
-    'election max': this.election.max,
-    'heartbeat min': this.beat.min,
-    'heartbeat max': this.beat.max,
-    'threshold': this.threshold,
-    'Log': this.Log
+    'Log':            this.Log,
+    'election max':   this.election.max,
+    'election min':   this.election.min,
+    'heartbeat max':  this.beat.max,
+    'heartbeat min':  this.beat.min,
+    'threshold':      this.threshold,
   }, key;
 
   for (key in node) {
@@ -636,8 +646,9 @@ Node.prototype.join = function join(name, write) {
   }
 
   var node = this.clone({
-    write: write,   // Function that receives our writes.
-    name: name      // A custom name for the node we added.
+    write: write,       // Optional function that receives our writes.
+    name: name,         // A custom name for the node we added.
+    state: Node.CHILD   // We are a node in the cluster.
   });
 
   node.once('end', function end() {
