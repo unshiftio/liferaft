@@ -761,11 +761,10 @@ describe('liferaft', function () {
   // Batch of tests which tests the clustering capabilities of liferaft as
   // everything works different when you start working with massive clusters.
   //
-  return;
   describe('cluster', function () {
     var port = 8088
       , net = require('net')
-      , ndjson = require('ndjson');
+      , debug = require('diagnostics')('cluster');
 
     var Paddle = Raft.extend({
       /**
@@ -778,9 +777,15 @@ describe('liferaft', function () {
         var raft = this;
 
         var server = net.createServer(function incoming(socket) {
-          socket.pipe(ndjson.parse()).on('data', function (packet) {
-            console.log('packte', packet);
-            raft.emit('data', packet);
+          socket.on('data', function (buff) {
+            var data = JSON.parse(buff.toString());
+
+            debug(raft.name +':packet#data', data);
+            raft.emit('data', data, function reply(data) {
+              debug(raft.name +':packet#reply', data);
+              socket.write(JSON.stringify(data));
+              socket.end();
+            });
           });
         }).listen(this.name);
 
@@ -798,12 +803,21 @@ describe('liferaft', function () {
        */
       write: function write(packet, fn) {
         var socket = net.connect(this.name)
-          , stringify = ndjson.stringify();
+          , raft = this;
 
-        socket.pipe(stringify).pipe(socket);
+        debug(raft.name +':packet#write', packet);
+        socket.on('data', function (buff) {
+          var data;
 
-        stringify.write(packet, fn);
-        stringify.end();
+          try { data = JSON.parse(buff.toString()); }
+          catch (e) { return fn(e); }
+
+          debug(raft.name +':packet#callback', packet);
+          fn(undefined, data);
+        });
+
+        socket.setNoDelay(true);
+        socket.write(JSON.stringify(packet));
       }
     });
 
