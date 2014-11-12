@@ -1,0 +1,29 @@
+{
+  "name": "example",
+  "version": "1.0.0",
+  "description": "An example of a custom raft service",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unshiftio/liferaft"
+  },
+  "keywords": [
+    "example",
+    "raft"
+  ],
+  "author": "Arnout Kazemier",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/unshiftio/liferaft/issues"
+  },
+  "homepage": "https://github.com/unshiftio/liferaft",
+  "dependencies": {
+    "argh": "0.1.x",
+    "axon": "2.0.x",
+    "diagnostics": "0.0.x",
+    "nanomsg": "0.2.x"
+  }
+}
