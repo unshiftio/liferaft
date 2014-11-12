@@ -34,9 +34,9 @@
   },
   "devDependencies": {
     "assume": "0.0.x",
+    "diagnostics": "0.0.x",
     "istanbul": "0.3.x",
     "mocha": "2.0.x",
-    "ndjson": "1.2.x",
     "pre-commit": "0.0.x"
   }
 }
