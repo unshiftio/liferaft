@@ -572,14 +572,21 @@ describe('liferaft', function () {
     describe('data', function () {
       it('calls the callback for unknown messages', function (next) {
         raft.emit('data', { type: 'bar' }, function (err) {
-          assume(err).is.instanceOf(Error);
+          assume(err).is.not.instanceOf(Error);
+          assume(err).is.a('object');
+          assume(err.type).equals('error');
+          assume(err.data).includes('Unknown');
           next();
         });
       });
 
       it('calls with an error when invalid data is send', function (next) {
         raft.emit('data', 1, function (err) {
-          assume(err).is.instanceOf(Error);
+          assume(err).is.not.instanceOf(Error);
+          assume(err).is.a('object');
+          assume(err.type).equals('error');
+          assume(err.data).includes('Invalid');
+
           next();
         });
       });

@@ -160,7 +160,7 @@ Node.prototype._initialize = function initialize(options) {
     write = write || nope;
 
     if ('object' !== this.type(packet)) {
-      return write(new Error('Invalid packet received'));
+      return write(this.packet('error', 'Invalid packet received'));
     }
 
     //
@@ -180,7 +180,7 @@ Node.prototype._initialize = function initialize(options) {
         term: packet.term
       });
     } else if (packet.term < this.term) {
-      return write(new Error('Stale term detected, we are at '+ this.term));
+      return write(this.packet('error', 'Stale term detected, we are at '+ this.term));
     }
 
     //
@@ -217,7 +217,7 @@ Node.prototype._initialize = function initialize(options) {
         //
         if (this.votes.for && this.votes.for !== packet.name) {
           this.emit('vote', packet, false);
-          return write(undefined, this.packet('vote', { granted: false }));
+          return write(this.packet('vote', { granted: false }));
         }
 
         //
@@ -232,7 +232,7 @@ Node.prototype._initialize = function initialize(options) {
           || this.term > packet.last.term
         )) {
           this.emit('vote', packet, false);
-          return write(undefined, this.packet('vote', { granted: false }));
+          return write(this.packet('vote', { granted: false }));
         }
 
         //
@@ -242,7 +242,7 @@ Node.prototype._initialize = function initialize(options) {
         //
         this.votes.for = packet.name;
         this.emit('vote', packet, true);
-        write(undefined, this.packet('vote', { granted: true }));
+        write(this.packet('vote', { granted: true }));
       break;
 
       //
@@ -253,7 +253,7 @@ Node.prototype._initialize = function initialize(options) {
         // Only accepts votes while we're still in a CANDIDATE state.
         //
         if (Node.CANDIDATE !== this.state) {
-          return write(new Error('No longer a candidate'));
+          return write(this.packet('error', 'No longer a candidate'));
         }
 
         //
@@ -274,6 +274,10 @@ Node.prototype._initialize = function initialize(options) {
         // Empty write, nothing to do.
         //
         write();
+      break;
+
+      case 'error':
+        this.emit('error', new Error(packet.data));
       break;
 
       //
@@ -303,7 +307,7 @@ Node.prototype._initialize = function initialize(options) {
         if (this.listeners('rpc').length) {
           this.emit('rpc', packet, write);
         } else {
-          write(new Error('Unknown message type: '+ packet.type));
+          write(this.packet('error', 'Unknown message type: '+ packet.type));
         }
     }
   });
