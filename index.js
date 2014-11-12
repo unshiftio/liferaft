@@ -243,6 +243,7 @@ Node.prototype._initialize = function initialize(options) {
         //
         this.votes.for = packet.name;
         this.emit('vote', packet, true);
+        this.change({ leader: packet.name, term: packet.term });
         write(this.packet('voted', { granted: true }));
 
         //
@@ -404,6 +405,8 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
     // not have time to receive data or updates.
     //
     var next = one(function force(err, data) {
+      if (!node.timers) return; // We're been destroyed, ignore all.
+
       node.timers.setImmediate(uuid +'@async', function async() {
         if (err) return again();
 
