@@ -158,9 +158,12 @@ Node.prototype._initialize = function initialize(options) {
   //
   this.on('data', function incoming(packet, write) {
     write = write || nope;
+    var reason;
 
     if ('object' !== this.type(packet)) {
-      return write(this.packet('error', 'Invalid packet received'));
+      reason = 'Invalid packet received';
+      this.emit('error', new Error(reason));
+      return write(this.packet('error', reason));
     }
 
     //
@@ -180,7 +183,9 @@ Node.prototype._initialize = function initialize(options) {
         term: packet.term
       });
     } else if (packet.term < this.term) {
-      return write(this.packet('error', 'Stale term detected, we are at '+ this.term));
+      reason = 'Stale term detected, received `'+ packet.term +'` we are at '+ this.term;
+      this.emit('error', new Error(reason));
+      return write(this.packet('error', reason));
     }
 
     //
@@ -408,7 +413,10 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
       if (!node.timers) return; // We're been destroyed, ignore all.
 
       node.timers.setImmediate(uuid +'@async', function async() {
-        if (err) return again();
+        if (err) {
+          node.emit('error', err);
+          return again();
+        }
 
         fn(err, data);
       });
