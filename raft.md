@@ -44,7 +44,7 @@ follow:
   ([Section 5.2][5.2]).
 - **Log replication**: the leader must accept log entries from clients and
   replicate them across the cluster, forcing the other logs to agree with its
-  own ([Section 5.3][5.4]).
+  own ([Section 5.3][5.3]).
 - **Safety**: the key safety property for Raft is the State Machine Safety
   Property in Figure 3: if any server has applied a particular log entry to its
   state machine, then no other server may apply a different command for the same
