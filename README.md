@@ -76,6 +76,7 @@ Event               | Description
 `join`              | Node has been added to the cluster.
 `end`               | This Raft instance has ended.
 `initialize`        | The node has been fully initialized.
+`error`             | An error happend while doing.. Things!
 
 ### LifeRaft.packet()
 
