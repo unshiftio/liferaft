@@ -299,7 +299,7 @@ Node.prototype._initialize = function initialize(options) {
           //
           // Send a heartbeat message to all connected clients.
           //
-          this.broadcast(this.packet('append'), 'beat');
+          this.broadcast(this.packet('append'));
         }
 
         //
@@ -506,7 +506,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     // @TODO this is a temporary hack to get the cluster running. According to
     // the raft spec we should be sending empty append requests.
     //
-    this.broadcast(this.packet('append'), 'beat');
+    this.broadcast(this.packet('append'));
   }, duration);
 
   return this;
@@ -516,11 +516,10 @@ Node.prototype.heartbeat = function heartbeat(duration) {
  * Broadcast a packet to every connected node client.
  *
  * @param {Object} packet Packet that needs be transmitted.
- * @param {Number|String} timeout Timeout for the message sending.
  * @returns {Node}
  * @api private
  */
-Node.prototype.broadcast = function broadcast(packet, timeout) {
+Node.prototype.broadcast = function broadcast(packet) {
   var node = this;
 
   /**
@@ -531,21 +530,17 @@ Node.prototype.broadcast = function broadcast(packet, timeout) {
    * @api private
    */
   function wrapper(client, data) {
-    //node.indefinitely(function attempt(next) {
-      client.write(data, function written(err, data) {
-        if (err) return;// next(err);
+    client.write(data, function written(err, data) {
+      if (err) return node.emit('error', err);
 
-        //
-        // OK, so this is the strange part here. We've broadcasted message and
-        // got back a reply. This reply contained data so we need to process
-        // it. What if the data is incorrect? Then we have no way at the
-        // moment to send back reply to a reply to the server.
-        //
-        if (data) node.emit('data', data);
-
-        //next();
-      });
-    //}, nope, timeout);
+      //
+      // OK, so this is the strange part here. We've broadcasted message and
+      // got back a reply. This reply contained data so we need to process
+      // it. What if the data is incorrect? Then we have no way at the
+      // moment to send back reply to a reply to the server.
+      //
+      if (data) node.emit('data', data);
+    });
   }
 
   for (var i = 0; i < node.nodes.length; i++) {
@@ -599,7 +594,7 @@ Node.prototype.promote = function promote() {
   var packet = this.packet('vote')
     , i = 0;
 
-  this.broadcast(this.packet('vote'), 'election');
+  this.broadcast(this.packet('vote'));
 
   //
   // Set the election timeout. This gives the nodes some time to reach
