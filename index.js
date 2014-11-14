@@ -67,7 +67,7 @@ function Node(name, options) {
     max: Tick.parse(options['election max'] || '300 ms')
   };
 
-  this.beat = Tick.parse(options.heartbeat || '200 ms');
+  this.beat = Tick.parse(options.heartbeat || '50 ms');
 
   this.votes = {
     for: null,                // Who did we vote for in this current term.
@@ -385,7 +385,7 @@ Node.prototype.type = function type(of) {
  *
  * @param {Number} responses Amount of responses received.
  * @returns {Boolean}
- * @api private
+ * @api public
  */
 Node.prototype.quorum = function quorum(responses) {
   if (!this.nodes.length || !responses) return false;
@@ -397,7 +397,7 @@ Node.prototype.quorum = function quorum(responses) {
  * The majority required to reach our the quorum.
  *
  * @returns {Number}
- * @api private
+ * @api public
  */
 Node.prototype.majority = function majority() {
   return Math.ceil(this.nodes.length / 2) + 1;
@@ -408,7 +408,7 @@ Node.prototype.majority = function majority() {
  *
  * @param {Function} attempt Function that needs to be attempted.
  * @param {Function} fn Completion callback.
- * @param {String} timeout Which timeout should we use.
+ * @param {Number} timeout Which timeout should we use.
  * @returns {Node}
  * @api public
  */
@@ -432,7 +432,7 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
           return again();
         }
 
-        fn(err, data);
+        fn(data);
       });
     });
 
@@ -443,7 +443,7 @@ Node.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
 
     node.timers.setTimeout(uuid, function timeoutfn() {
       next(new Error('Timed out, attempting to retry again'));
-    }, +timeout || node.timeout(timeout));
+    }, +timeout || node.timeout());
   }());
 
   return this;

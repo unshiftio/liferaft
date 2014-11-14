@@ -22,7 +22,7 @@ following:
 'use strict';
 
 var LifeRaft = require('liferaft')
-  , raft = new Raft();
+  , raft = new Raft('name', { /* optional options */});
 ```
 
 Please note that the instructions for Node.js and browser are exactly the same
@@ -32,27 +32,31 @@ and append log (but this of course, fully optional).
 
 The LifeRaft library is quite dumb by default. We try to be as lean and
 extendible as possible so you, as a developer, have complete freedom on how you
-want to implement Raft in your architecture. Things like transport layers and
-replicated logs are all made optional so you can decided.
+want to implement Raft in your architecture. This also means that we ship this
+library without any build in transport. This allows you to use it with your
+existing technology stack and environment. If you want to use `SharedWorkers` as
+transport in the browser? Awesome, you can do that. Want to use it on node?
+There are literally thousands of different transport libraries that you can use.
 
 ### Configuration
 
 There are a couple of default options that you can configure in the constructor
 of your Raft:
 
-- `id` A unique id of the node that we just created. If none is supplied we will
-  generate a random UUID.
-- `heartbeat min` Minimum heartbeat timeout.
-- `heartbeat max` Maximum heartbeat timeout.
+- `name` A unique name of the node that we just created. If none is supplied we
+  will generate a random UUID.
+- `heartbeat` The heartbeat timeout. Make sure that this value is lower then
+  your minimum election timeout and take message latency in consideration when
+  specifying this and the minimum election value.
 - `election min` Minimum election timeout.
 - `election max` Maximum election timeout.
+- `threshold` Threshold for when the heartbeat and latency is to close to the
+  minimum election timeout.
 - `Log`: An Log compatible constructor we which use for state and data
   replication. 
 
 The timeout values can be configured with either a number which represents the
-time milliseconds or a human readable time string such as `10 ms`. The election
-timeout is the leading timeout if you don't provide default values for the
-heartbeat it will default to the values of the election timeout. The heartbeat
+time milliseconds or a human readable time string such as `10 ms`. The heartbeat
 timeouts are used to detect a disconnection from the `LEADER` process if no
 message has been received within the given timeout we assume its dead that we
 should be promoted to master. The election timeout is the time it may take to
@@ -83,7 +87,73 @@ Event               | Description
 `candidate`         | Our state changed to candidate.
 `stopped`           | Our state changed to stopped.
 
-### LifeRaft.packet()
+### LifeRaft.type(of)
+
+Check the type of the given thing. This returns the correct type for arrays,
+objects, regexps and all the things. It's used internally in the library but
+might be useful for you as user as well. The function requires one argument
+which would be the `thing` who's type you need figure out.
+
+```js
+raft.type([]); // array
+raft.type({}); // object
+```
+
+### LifeRaft.quorum(responses)
+
+Check if we've reached our quorum (a.k.a. minimum amount of votes requires for a
+voting round to be considered valid) for the given amount of votes. This depends
+on the amount of joined nodes. It requires one argument which is the amount of
+responses that have been received.
+
+```js
+raft.join('tcp://127.0.0.1');
+raft.join('tcp://127.0.0.2');
+raft.join('tcp://127.0.0.3');
+raft.join('tcp://127.0.0.4');
+raft.join('tcp://127.0.0.4');
+
+raft.quorum(5); // true
+raft.quorum(2); // false
+```
+
+### LifeRaft.majority()
+
+Returns the majority that needs to be reached for our quorum.
+
+```js
+raft.majority(); // 4
+```
+
+### LifeRaft.indefinitely(attempt, fn, timeout)
+
+According to section x.x of the Raft paper it's required that we retry sending
+the RPC messages until they succeed. This function will run the given `attempt`
+function until the received callback has been called successfully and within our
+given timeout. If this is not the case we will call the attempt function again
+and again until it succeeds. The function requires 3 arguments:
+
+1. `attempt`, The function that needs to be called over and over again until he
+   calls the receiving callback successfully and without errors as we assume an
+   error first callback pattern.
+2. `fn`, Completion callback, we've successfully executed the attempt.
+3. `timeout`, Time the attempt is allowed to take.
+
+```js
+raft.indefinitely(function attemp(next) {
+  dosomething(function (err, data) {
+    //
+    // if there is no error then we wil also pass the data to the completion
+    // callback.
+    //
+    return next(err, data);
+  });
+}, function done(data) {
+  // Successful execution.
+}, 1000);
+```
+
+### LifeRaft.packet(type, data)
 
 Generate a new packet object that can be transfered to a client. The method
 accepts 2 arguments:
@@ -106,22 +176,12 @@ These packages will contain the following information:
 And of course also the `type` which is the type you passed this function in and
 the `data` that you want to send.
 
-### LifeRaft.promote()
-
-**Private method, use with caution**
-
-This promotes the Node from `FOLLOWER` to `CANDIDATE` and starts requesting
-votes from other connected nodes. When the majority has voted in favour of this
-node, it will become `LEADER`.
-
-```js
-raft.promote();
-```
-
 ### LifeRaft.join(name, write)
 
-Add a new raft node to your cluster. The name is optional, but it would be nice
-if it was the name of the node that you just added to the cluster.
+Add a new raft node to your cluster. All parameters are optional but normally
+you would pass in the name or address with the location of the server you want
+to add. The write method is only optional if you are using a custom instance
+that already has the `write` method defined.
 
 ```js
 var node = raft.join('127.0.0.1:8080', function write(packet) {
@@ -172,6 +232,18 @@ raft.on('end', function () {
 });
 
 raft.end();
+```
+
+### LifeRaft.promote()
+
+**Private method, use with caution**
+
+This promotes the Node from `FOLLOWER` to `CANDIDATE` and starts requesting
+votes from other connected nodes. When the majority has voted in favour of this
+node, it will become `LEADER`.
+
+```js
+raft.promote();
 ```
 
 ## Extending
