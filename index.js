@@ -36,8 +36,7 @@ function nope() {}
  * Options:
  *
  * - `name`: An unique id of this given node.
- * - `heartbeat min`: Minimum heartbeat timeout.
- * - `heartbeat max`: Maximum heartbeat timeout.
+ * - `heartbeat`: Heartbeat timeout.
  * - `election min`: Minimum election timeout.
  * - `election max`: Maximum election timeout.
  * - `threshold`: Threshold when the heartbeat RTT is close to the election
@@ -68,10 +67,7 @@ function Node(name, options) {
     max: Tick.parse(options['election max'] || '300 ms')
   };
 
-  this.beat = {
-    min: Tick.parse(options['heartbeat min'] || this.election.min),
-    max: Tick.parse(options['heartbeat max'] || this.election.max)
-  };
+  this.beat = Tick.parse(options.heartbeat || '200 ms');
 
   this.votes = {
     for: null,                // Who did we vote for in this current term.
@@ -489,7 +485,7 @@ Node.prototype.change = function change(changed) {
  * @api private
  */
 Node.prototype.heartbeat = function heartbeat(duration) {
-  duration = duration || this.timeout('beat');
+  duration = duration || this.beat;
 
   if (this.timers.active('heartbeat')) {
     this.timers.adjust('heartbeat', duration);
@@ -553,12 +549,11 @@ Node.prototype.broadcast = function broadcast(packet) {
 /**
  * Generate the various of timeouts.
  *
- * @param {String} which Type of timeout we want to generate.
  * @returns {Number}
  * @api private
  */
-Node.prototype.timeout = function timeout(which) {
-  var times = this[which || 'election'];
+Node.prototype.timeout = function timeout() {
+  var times = this.election;
 
   return Math.floor(Math.random() * (times.max - times.min + 1) + times.min);
 };
@@ -603,7 +598,7 @@ Node.prototype.promote = function promote() {
   //
   this.timers
     .clear('heartbeat, election')
-    .setTimeout('election', this.promote, this.timeout('election'));
+    .setTimeout('election', this.promote, this.timeout());
 
   return this;
 };
@@ -654,8 +649,7 @@ Node.prototype.clone = function clone(options) {
     'Log':            this.Log,
     'election max':   this.election.max,
     'election min':   this.election.min,
-    'heartbeat max':  this.beat.max,
-    'heartbeat min':  this.beat.min,
+    'heartbeat':      this.beat,
     'threshold':      this.threshold,
   }, key;
 
