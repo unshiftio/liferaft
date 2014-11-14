@@ -37,12 +37,10 @@ describe('liferaft', function () {
       raft = new Raft({
         'election min': '100 ms',
         'election max': '150 ms',
-        'heartbeat min': '400 ms',
-        'heartbeat max': '600 ms'
+        'heartbeat': '600 ms'
       });
 
-      assume(raft.beat.max).equals(600);
-      assume(raft.beat.min).equals(400);
+      assume(raft.beat).equals(600);
       assume(raft.election.max).equals(150);
       assume(raft.election.min).equals(100);
 
@@ -50,12 +48,10 @@ describe('liferaft', function () {
       raft = new Raft({
         'election min': 100,
         'election max': 150,
-        'heartbeat min': 400,
-        'heartbeat max': 600
+        'heartbeat': 600
       });
 
-      assume(raft.beat.max).equals(600);
-      assume(raft.beat.min).equals(400);
+      assume(raft.beat).equals(600);
       assume(raft.election.max).equals(150);
       assume(raft.election.min).equals(100);
     });
@@ -136,25 +132,6 @@ describe('liferaft', function () {
       }, 20);
     });
 
-    it('attempts writing packet again if write failed', function (next) {
-      var packet = raft.packet('foo')
-        , called = false;
-
-      raft.join(function (data, fn) {
-        assume(fn).is.a('function');
-        assume(data).equal(packet);
-
-        if (!called) {
-          called = true;
-          return fn(new Error('I failed to process fn'));
-        }
-
-        next();
-      });
-
-      raft.broadcast(packet);
-    });
-
     it('emits the `data` event with response', function (next) {
       var node = raft.join(function (data, fn) {
         fn(undefined, node.packet('external'));
@@ -179,7 +156,7 @@ describe('liferaft', function () {
         , same = {};
 
       for (var i = 0; i < times; i++) {
-        timeouts.push(raft.timeout('election'));
+        timeouts.push(raft.timeout());
       }
 
       timeouts.forEach(function (timeout, i) {
