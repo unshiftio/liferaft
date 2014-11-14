@@ -154,7 +154,7 @@ Node.prototype._initialize = function initialize(options) {
     }
 
     this.timers.clear('heartbeat, election');
-    this.heartbeat();
+    this.heartbeat(Node.LEADER === this.state ? this.beat : this.timeout());
     this.emit(state);
   });
 
@@ -211,7 +211,7 @@ Node.prototype._initialize = function initialize(options) {
       // Always when we receive an message from the Leader we need to reset our
       // heartbeat.
       //
-      this.heartbeat();
+      this.heartbeat(this.timeout());
     }
 
     switch (packet.type) {
@@ -263,7 +263,7 @@ Node.prototype._initialize = function initialize(options) {
         // Which would again increment the term causing us to be next CANDIDATE
         // and invalidates the request we just got, so that's silly willy.
         //
-        this.heartbeat();
+        this.heartbeat(this.timeout());
       break;
 
       //
@@ -364,7 +364,7 @@ Node.prototype._initialize = function initialize(options) {
   // implementors have some time to start listening for incoming ping packets.
   //
   this.emit('initialize');
-  this.heartbeat();
+  this.heartbeat(this.timeout());
 };
 
 /**
@@ -503,6 +503,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     // the raft spec we should be sending empty append requests.
     //
     this.broadcast(this.packet('append'));
+    this.heartbeat(this.beat);
   }, duration);
 
   return this;
