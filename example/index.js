@@ -90,7 +90,8 @@ var port = +argv.port || ports[0];
 //
 var raft = new MsgRaft('tcp://127.0.0.1:'+ port, {
   'election min': 2000,
-  'election max': 5000
+  'election max': 5000,
+  'heartbeat': 1000
 });
 
 raft.on('heartbeat timeout', function () {
@@ -103,6 +104,18 @@ raft.on('term change', function (to, from) {
   debug('we have a new leader to: %s -- was %s', to, from);
 }).on('state change', function (to, from) {
   debug('we have a state to: %s -- was %s', to, from);
+});
+
+raft.on('leader', function () {
+  console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
+  console.log('I am elected as leader');
+  console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
+});
+
+raft.on('candidate', function () {
+  console.log('----------------------------------');
+  console.log('I am starting as candidate');
+  console.log('----------------------------------');
 });
 
 //
