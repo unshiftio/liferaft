@@ -64,7 +64,9 @@ var MsgRaft = LifeRaft.extend({
     }
 
     debug('writing packet to socket on port %s', raft.name);
-    socket.send(packet, fn);
+    socket.send(packet, function (data) {
+      fn(undefined, data);
+    });
   }
 });
 
