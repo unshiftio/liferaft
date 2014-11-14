@@ -148,9 +148,18 @@ Node.prototype._initialize = function initialize(options) {
   // Reset our times and start the heartbeat again. If we're promoted to leader
   // the heartbeat will automatically be broadcasted to users as well.
   //
-  this.on('state change', function change(currently, previously) {
+  this.on('state change', function change(state) {
+    switch (state) {
+      case 1: state = 'leader'; break;
+      case 2: state = 'candidate'; break;
+      case 3: state = 'follower'; break;
+      case 4: state = 'stopped'; break;
+      case 5: state = 'child'; break;
+    }
+
     this.timers.clear('heartbeat, election');
     this.heartbeat();
+    this.emit(state);
   });
 
   //

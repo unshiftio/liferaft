@@ -619,6 +619,49 @@ describe('liferaft', function () {
       });
     });
 
+    describe('state events', function () {
+      it('should emit a `leader` event', function (next) {
+        raft.once('leader', function () {
+          next();
+        });
+
+        raft.change({ state: Raft.LEADER });
+      });
+
+      it('should emit a `follower` event', function (next) {
+        raft.once('follower', function () {
+          next();
+        });
+
+        raft.change({ state: Raft.LEADER }); // Default is follower, so change first
+        raft.change({ state: Raft.FOLLOWER });
+      });
+
+      it('should emit a `candidate` event', function (next) {
+        raft.once('candidate', function () {
+          next();
+        });
+
+        raft.change({ state: Raft.CANDIDATE });
+      });
+
+      it('should emit a `stopped` event', function (next) {
+        raft.once('stopped', function () {
+          next();
+        });
+
+        raft.change({ state: Raft.STOPPED });
+      });
+
+      it('should emit a `child` event', function (next) {
+        raft.once('child', function () {
+          next();
+        });
+
+        raft.change({ state: Raft.CHILD });
+      });
+    });
+
     describe('rpc', function () {
       it('should emit an rpc event when an unknown package arrives', function (next) {
         raft.once('rpc', function (packet) {
