@@ -496,7 +496,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     return this;
   }
 
-  this.timers.setTimeout('heartbeat', function () {
+  this.timers.setTimeout('heartbeat', function heartbeattimeout() {
     if (Node.LEADER !== this.state) {
       this.emit('heartbeat timeout');
       return this.promote();
