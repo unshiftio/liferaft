@@ -76,7 +76,12 @@ Event               | Description
 `join`              | Node has been added to the cluster.
 `end`               | This Raft instance has ended.
 `initialize`        | The node has been fully initialized.
-`error`             | An error happend while doing.. Things!
+`error`             | An error happened while doing.. Things!
+`threshold`         | The heartbeat timeout is getting close to election timeout.
+`leader`            | Our state changed to leader.
+`follower`          | Our state changed to follower.
+`candidate`         | Our state changed to candidate.
+`stopped`           | Our state changed to stopped.
 
 ### LifeRaft.packet()
 
