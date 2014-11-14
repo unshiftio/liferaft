@@ -34,7 +34,6 @@ var MsgRaft = LifeRaft.extend({
     debug('initializing reply socket on port %s', raft.name);
 
     socket = raft.socket = msg.socket('rep');
-    if (socket.set) socket.set('hwm', -1);
 
     socket.bind(raft.name);
     socket.on('message', raft.emits('data'));
@@ -57,7 +56,6 @@ var MsgRaft = LifeRaft.extend({
 
     if (!socket) {
       socket = raft.socket = msg.socket('req');
-      if (socket.set) socket.set('hwm', -1);
 
       socket.connect(raft.name);
       socket.on('error', function err() {
