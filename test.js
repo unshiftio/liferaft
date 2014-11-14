@@ -826,6 +826,7 @@ describe('liferaft', function () {
           , raft = this;
 
         debug(raft.name +':packet#write', packet);
+        socket.on('error', fn);
         socket.on('data', function (buff) {
           var data;
 
