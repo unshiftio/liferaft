@@ -575,9 +575,12 @@ Node.prototype.timeout = function timeout() {
  * minimum election timeout.
  *
  * @param {Array} latency Latency of the last broadcast.
+ * @param {Boolean} Success-fully calculated the threshold.
  * @api private
  */
 Node.prototype.timing = function timing(latency) {
+  if (Node.STOPPED === this.state) return false;
+
   for (var i = 0, sum = 0; i < latency.length; i++) {
     sum += latency[i];
   }
@@ -587,6 +590,8 @@ Node.prototype.timing = function timing(latency) {
   if (this.latency > this.election.min * this.threshold) {
     this.emit('threshold');
   }
+
+  return true;
 };
 
 /**
