@@ -187,7 +187,7 @@ Node.prototype._initialize = function initialize(options) {
     //
     if (packet.term > this.term) {
       this.change({
-        leader: packet.leader,
+        leader: Node.LEADER === packet.state ? packet.name : packet.leader || this.leader,
         state: Node.FOLLOWER,
         term: packet.term
       });
@@ -202,18 +202,19 @@ Node.prototype._initialize = function initialize(options) {
     //
     // If we receive a message from someone who claims to be leader and shares
     // our same term while we're in candidate mode we will recognize their
-    // leadership and return as follower
+    // leadership and return as follower.
     //
-    if (Node.LEADER === packet.state && Node.FOLLOWER !== this.state) {
-      this.change({ state: Node.FOLLOWER, leader: packet.leader });
-    }
-
-    //
-    // Always when we receive an message from the Leader we need to reset our
-    // heartbeat.
+    // If we got this far we already know that our terms are the same as it
+    // would be changed or prevented above..
     //
     if (Node.LEADER === packet.state) {
-      if (packet.name !== this.leader) this.change({ leader: packet.leader });
+      if (Node.FOLLOWER !== this.state) this.change({ state: Node.FOLLOWER });
+      if (packet.name !== this.leader) this.change({ leader: packet.name });
+
+      //
+      // Always when we receive an message from the Leader we need to reset our
+      // heartbeat.
+      //
       this.heartbeat();
     }
 
@@ -284,7 +285,9 @@ Node.prototype._initialize = function initialize(options) {
         // Increment our received votes when our voting request has been
         // granted by the node that received the data.
         //
-        if (packet.data.granted) this.votes.granted++;
+        if (packet.data.granted) {
+          this.votes.granted++;
+        }
 
         //
         // Check if we've received the minimal amount of votes required for this
@@ -292,6 +295,11 @@ Node.prototype._initialize = function initialize(options) {
         //
         if (this.quorum(this.votes.granted)) {
           this.change({ leader: this.name, state: Node.LEADER });
+
+          //
+          // Send a heartbeat message to all connected clients.
+          //
+          this.broadcast(this.packet('append'), 'beat');
         }
 
         //
