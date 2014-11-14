@@ -79,6 +79,7 @@ function Node(name, options) {
   this.name = options.name || UUID();
   this.timers = new Tick(this);
   this.Log = options.Log;
+  this.latency = 0;
   this.log = null;
   this.nodes = [];
 
@@ -510,14 +511,19 @@ Node.prototype.heartbeat = function heartbeat(duration) {
 };
 
 /**
- * Broadcast a packet to every connected node client.
+ * Broadcast a packet to every connected node client. In addition to that we use
+ * the broadcasting to calculate the average latency between the nodes so we can
+ * check if our heartbeat isn't dangerously close scheduled to the minimum
+ * election timeout.
  *
  * @param {Object} packet Packet that needs be transmitted.
  * @returns {Node}
  * @api private
  */
 Node.prototype.broadcast = function broadcast(packet) {
-  var node = this;
+  var length = this.nodes.length
+    , latency = []
+    , node = this;
 
   /**
    * A small wrapper to force indefinitely sending of a certain packet.
@@ -527,7 +533,12 @@ Node.prototype.broadcast = function broadcast(packet) {
    * @api private
    */
   function wrapper(client, data) {
+    var start = +new Date();
+
     client.write(data, function written(err, data) {
+      latency.push(+new Date() - start);
+
+      if (latency.length === length) node.timing(latency);
       if (err) return node.emit('error', err);
 
       //
@@ -540,7 +551,7 @@ Node.prototype.broadcast = function broadcast(packet) {
     });
   }
 
-  for (var i = 0; i < node.nodes.length; i++) {
+  for (var i = 0; i < length; i++) {
     wrapper(node.nodes[i], packet);
   }
 
@@ -557,6 +568,25 @@ Node.prototype.timeout = function timeout() {
   var times = this.election;
 
   return Math.floor(Math.random() * (times.max - times.min + 1) + times.min);
+};
+
+/**
+ * Calculate if our average latency causes us to come dangerously close to the
+ * minimum election timeout.
+ *
+ * @param {Array} latency Latency of the last broadcast.
+ * @api private
+ */
+Node.prototype.timing = function timing(latency) {
+  for (var i = 0, sum = 0; i < latency.length; i++) {
+    sum += latency[i];
+  }
+
+  this.latency = Math.floor(sum / latency.length);
+
+  if (this.latency > this.election.min * this.threshold) {
+    this.emit('threshold');
+  }
 };
 
 /**
