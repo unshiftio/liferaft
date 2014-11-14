@@ -66,7 +66,7 @@ var MsgRaft = LifeRaft.extend({
     }
 
     debug('writing packet to socket on port %s', raft.name);
-    socket.send(packet); fn();
+    socket.send(packet, fn);
   }
 });
 
@@ -77,7 +77,8 @@ var MsgRaft = LifeRaft.extend({
 //
 var ports = [
   8081, 8082,
-  8083, 8084
+  8083, 8084,
+  8085, 8086
 ];
 
 //
