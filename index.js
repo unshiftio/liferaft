@@ -531,9 +531,9 @@ Node.prototype.broadcast = function broadcast(packet, timeout) {
    * @api private
    */
   function wrapper(client, data) {
-    node.indefinitely(function attempt(next) {
+    //node.indefinitely(function attempt(next) {
       client.write(data, function written(err, data) {
-        if (err) return next(err);
+        if (err) return;// next(err);
 
         //
         // OK, so this is the strange part here. We've broadcasted message and
@@ -543,9 +543,9 @@ Node.prototype.broadcast = function broadcast(packet, timeout) {
         //
         if (data) node.emit('data', data);
 
-        next();
+        //next();
       });
-    }, nope, timeout);
+    //}, nope, timeout);
   }
 
   for (var i = 0; i < node.nodes.length; i++) {
