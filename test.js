@@ -824,9 +824,10 @@ describe('liferaft', function () {
     it('reaches consensus about leader election', function (next) {
       var ports = [port++, port++, port++, port++]
         , nodes = []
-        , node;
+        , node
+        , i;
 
-      for (var i = 0; i < ports.length; i++) {
+      for (i = 0; i < ports.length; i++) {
         node = new Paddle(ports[i]);
         nodes.push(node);
 
@@ -837,6 +838,18 @@ describe('liferaft', function () {
         }
       }
 
+      for (i = 0; i < nodes.length; i++) {
+        if (nodes[i] === node) continue;
+
+        nodes[i].once('state change', function (to, from) {
+          throw new Error('I should not change state, im a follower');
+        });
+
+        nodes[i].on('leader change', function (to, from) {
+          assume(to).equals(node.name);
+        });
+      }
+
       //
       // Force a node in to a candidate role to ensure that this node will be
       // promoted as leader as it's the first to be alive.
@@ -845,7 +858,18 @@ describe('liferaft', function () {
       node.once('state change', function changed(state) {
         assume(state).equals(Paddle.LEADER);
 
-        for (var i = 0; i < ports.length; i++) {
+        //
+        // Check if every node is in sync
+        //
+        for (i = 0; i < nodes.length; i++) {
+          if (node === nodes[i]) continue;
+
+          assume(nodes[i].leader).equals(node.name);
+          assume(nodes[i].state).equals(Raft.FOLLOWER);
+          assume(nodes[i].term).equals(node.term);
+        }
+
+        for (i = 0; i < ports.length; i++) {
           nodes[i].end();
         }
 
