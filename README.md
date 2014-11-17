@@ -87,7 +87,25 @@ Event               | Description
 `candidate`         | Our state changed to candidate.
 `stopped`           | Our state changed to stopped.
 
-### LifeRaft.type(of)
+### LifeRaft.states
+
+**Please note this property is exposed on constructor, not on the prototype**
+
+This is an array that contains the names of the states. It can be used to create
+a human readable string from your current state.
+
+```js
+console.log(LifeRaft.states[raft.state]); // FOLLOWER
+```
+
+### LifeRaft.{FOLLOWER, LEADER, CANDIDATE, STOPPED, CHILD}
+
+**Please note this property is exposed on constructor, not on the prototype**
+
+These are the values that we set as state. If you instance is a leader it's
+state will be set to `LifeRaft.LEADER`.
+
+### LifeRaft#type(of)
 
 Check the type of the given thing. This returns the correct type for arrays,
 objects, regexps and all the things. It's used internally in the library but
@@ -99,7 +117,7 @@ raft.type([]); // array
 raft.type({}); // object
 ```
 
-### LifeRaft.quorum(responses)
+### LifeRaft#quorum(responses)
 
 Check if we've reached our quorum (a.k.a. minimum amount of votes requires for a
 voting round to be considered valid) for the given amount of votes. This depends
@@ -117,7 +135,7 @@ raft.quorum(5); // true
 raft.quorum(2); // false
 ```
 
-### LifeRaft.majority()
+### LifeRaft#majority()
 
 Returns the majority that needs to be reached for our quorum.
 
@@ -125,7 +143,7 @@ Returns the majority that needs to be reached for our quorum.
 raft.majority(); // 4
 ```
 
-### LifeRaft.indefinitely(attempt, fn, timeout)
+### LifeRaft#indefinitely(attempt, fn, timeout)
 
 According to section x.x of the Raft paper it's required that we retry sending
 the RPC messages until they succeed. This function will run the given `attempt`
@@ -153,7 +171,7 @@ raft.indefinitely(function attemp(next) {
 }, 1000);
 ```
 
-### LifeRaft.packet(type, data)
+### LifeRaft#packet(type, data)
 
 Generate a new packet object that can be transfered to a client. The method
 accepts 2 arguments:
@@ -176,7 +194,28 @@ These packages will contain the following information:
 And of course also the `type` which is the type you passed this function in and
 the `data` that you want to send.
 
-### LifeRaft.join(name, write)
+### LifeRaft#message(who, what, when)
+
+The message method is somewhat private but it might also be useful for you as
+developer. It's a message interface between every connected node in your
+cluster. It allows you to send messages the current leader, or only the
+followers or everybody. This allows you easily build other scale and high
+availability patterns on top of this module and take advantage of all the
+features that this library is offering. This method accepts 2 arguments:
+
+1. `who`, The messaging pattern/mode you want it use. It can either be:
+  - `LifeRaft.LEADER`: Send message to the current leader.
+  - `LifeRaft.FOLLOWER`: Send to everybody who is not a leader.
+  - `LifeRaft.CHILD`: Send to every child in the cluster (everybody).
+  - `<node name>`: Find the node based on the provided name.
+2. `what`, The message body you want to use. We high suggest using the `.packet`
+   method for constructing cluster messages so additional state can be send.
+3. `when`, Optional completion callback for when all messages are send.
+
+This message does have a side affect it also calculates the latency for sending
+the messages so we know if we are dangerously close to our threshold.
+
+### LifeRaft#join(name, write)
 
 Add a new raft node to your cluster. All parameters are optional but normally
 you would pass in the name or address with the location of the server you want
@@ -200,7 +239,7 @@ raft.on('join', function join(node) {
 });
 ```
 
-### LifeRaft.leave(name)
+### LifeRaft#leave(name)
 
 Now that you've added a new node to your raft cluster it's also good to know
 that you remove them again. This method either accepts the name of the node that
@@ -221,7 +260,7 @@ raft.on('leave', function leave(node) {
 });
 ```
 
-### LifeRaft.end()
+### LifeRaft#end()
 
 This signals that the node wants to be removed from the cluster. Once it has
 successfully removed it self, it will emit the `end` event.
@@ -234,7 +273,7 @@ raft.on('end', function () {
 raft.end();
 ```
 
-### LifeRaft.promote()
+### LifeRaft#promote()
 
 **Private method, use with caution**
 
