@@ -1,6 +1,6 @@
 {
   "name": "liferaft",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Consensus protocol based on raft, but only for saving lifes.",
   "main": "index.js",
   "scripts": {
