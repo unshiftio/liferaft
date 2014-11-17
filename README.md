@@ -13,6 +13,28 @@ The `liferaft` module is distributed through npm and is compatible with
 npm install --save liferaft
 ```
 
+## Table Of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Configuration](#configuration)
+  - [Events](#events)
+  - [LifeRaft.states](#liferaftstates)
+  - [LifeRaft.{state}](#liferaftfollower-leader-candidate-stopped-child)
+  - [LifeRaft#type()](#liferafttypeof)
+  - [LifeRaft#quorum()](#liferaftquorumresponses)
+  - [LifeRaft#majority()](#liferaftmajority)
+  - [LifeRaft#indefinitely()](#liferaftindefinitelyattempt-fn-timeout)
+  - [LifeRaft#packet()](#liferaftpackettype-data)
+  - [LifeRaft#message()](#liferaftmessagewho-what-when)
+  - [LifeRaft#join()](#liferaftjoinname-write)
+  - [LifeRaft#leave()](#liferaftleavename)
+  - [LifeRaft#promote()](#liferaftpromote)
+  - [LifeRaft#end()](#liferaftend)
+- [Extending](#extending)
+  - [Initialization](#initialization)
+- [License](#license)
+
 ## Usage
 
 In all examples we assume that you've imported the `liferaft` module as
@@ -87,9 +109,12 @@ Event               | Description
 `candidate`         | Our state changed to candidate.
 `stopped`           | Our state changed to stopped.
 
-### LifeRaft.states
+---
 
-**Please note this property is exposed on constructor, not on the prototype**
+**Please note that the following properties are exposed on the `constructor` not
+on the `prototype`.**
+
+### LifeRaft.states
 
 This is an array that contains the names of the states. It can be used to create
 a human readable string from your current state.
@@ -98,12 +123,12 @@ a human readable string from your current state.
 console.log(LifeRaft.states[raft.state]); // FOLLOWER
 ```
 
-### LifeRaft.{FOLLOWER, LEADER, CANDIDATE, STOPPED, CHILD}
-
-**Please note this property is exposed on constructor, not on the prototype**
+### LifeRaft.{FOLLOWER,LEADER,CANDIDATE,STOPPED,CHILD}
 
 These are the values that we set as state. If you instance is a leader it's
 state will be set to `LifeRaft.LEADER`.
+
+---
 
 ### LifeRaft#type(of)
 
@@ -260,6 +285,18 @@ raft.on('leave', function leave(node) {
 });
 ```
 
+### LifeRaft#promote()
+
+**Private method, use with caution**
+
+This promotes the Node from `FOLLOWER` to `CANDIDATE` and starts requesting
+votes from other connected nodes. When the majority has voted in favour of this
+node, it will become `LEADER`.
+
+```js
+raft.promote();
+```
+
 ### LifeRaft#end()
 
 This signals that the node wants to be removed from the cluster. Once it has
@@ -271,18 +308,6 @@ raft.on('end', function () {
 });
 
 raft.end();
-```
-
-### LifeRaft#promote()
-
-**Private method, use with caution**
-
-This promotes the Node from `FOLLOWER` to `CANDIDATE` and starts requesting
-votes from other connected nodes. When the majority has voted in favour of this
-node, it will become `LEADER`.
-
-```js
-raft.promote();
 ```
 
 ## Extending
