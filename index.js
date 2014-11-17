@@ -51,6 +51,7 @@ function nope() {}
  * well.
  *
  * @constructor
+ * @param {Mixed} name Unique id or name of this given node.
  * @param {Object} options Node configuration.
  * @api public
  */
@@ -113,16 +114,22 @@ Node.prototype.emits = require('emits');
  *
  * A Node can be in only one of the various states. The stopped state is not
  * something that is part of the Raft protocol but something we might want to
- * use internally while we're starting or shutting down our node.
+ * use internally while we're starting or shutting down our node. The following
+ * states are generated:
+ *
+ * - STOPPED:   Assume we're dead.
+ * - LEADER:    We're selected as leader process.
+ * - CANDIDATE: We want to be promoted to leader.
+ * - FOLLOWER:  We're just following a leader.
+ * - CHILD:     A node that has been added using JOIN.
  *
  * @type {Number}
  * @private
  */
-Node.LEADER    = 1;   // We're selected as leader process.
-Node.CANDIDATE = 2;   // We want to be promoted to leader.
-Node.FOLLOWER  = 3;   // We're just following a leader.
-Node.STOPPED   = 4;   // Assume we're dead.
-Node.CHILD     = 5;   // Child node of an instance.
+Node.states = 'STOPPED,LEADER,CANDIDATE,FOLLOWER,CHILD'.split(',');
+for (var s = 0; s < Node.states.length; s++) {
+  Node[Node.states[s]] = s;
+}
 
 /**
  * Initialize the node and start listening to the various of events we're
@@ -146,17 +153,9 @@ Node.prototype._initialize = function initialize(options) {
   // the heartbeat will automatically be broadcasted to users as well.
   //
   this.on('state change', function change(state) {
-    switch (state) {
-      case 1: state = 'leader'; break;
-      case 2: state = 'candidate'; break;
-      case 3: state = 'follower'; break;
-      case 4: state = 'stopped'; break;
-      case 5: state = 'child'; break;
-    }
-
     this.timers.clear('heartbeat, election');
     this.heartbeat(Node.LEADER === this.state ? this.beat : this.timeout());
-    this.emit(state);
+    this.emit(Node.states[state].toLowerCase());
   });
 
   //
@@ -296,7 +295,7 @@ Node.prototype._initialize = function initialize(options) {
           //
           // Send a heartbeat message to all connected clients.
           //
-          this.broadcast(this.packet('append'));
+          this.message(Node.FOLLOWER, this.packet('append'));
         }
 
         //
@@ -503,7 +502,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     // @TODO this is a temporary hack to get the cluster running. According to
     // the raft spec we should be sending empty append requests.
     //
-    this.broadcast(this.packet('append'));
+    this.message(Node.FOLLOWER, this.packet('append'));
     this.heartbeat(this.beat);
   }, duration);
 
@@ -511,19 +510,51 @@ Node.prototype.heartbeat = function heartbeat(duration) {
 };
 
 /**
- * Broadcast a packet to every connected node client. In addition to that we use
- * the broadcasting to calculate the average latency between the nodes so we can
- * check if our heartbeat isn't dangerously close scheduled to the minimum
- * election timeout.
+ * Send a message to connected nodes within our cluster. The following messaging
+ * patterns (who) are available:
  *
- * @param {Object} packet Packet that needs be transmitted.
+ * - Node.LEADER   : Send a message to cluster's current leader.
+ * - Node.FOLLOWER : Send a message to all non leaders.
+ * - Node.CHILD    : Send a message to everybody.
+ * - <name>        : Send a message to a node based on the name.
+ *
+ * @param {Mixed} who Recipient of the message.
+ * @param {Mixed} what The data we need to send.
+ * @param {Function} when Completion callback
  * @returns {Node}
- * @api private
+ * @api public
  */
-Node.prototype.broadcast = function broadcast(packet) {
+Node.prototype.message = function message(who, what, when) {
+  when = when || nope;
+
   var length = this.nodes.length
     , latency = []
-    , node = this;
+    , node = this
+    , nodes = []
+    , i = 0;
+
+  switch (who) {
+    case Node.LEADER: for (; i < length; i++)
+      if (node.leader === node.nodes[i].name) {
+        nodes.push(node.nodes[i]);
+      }
+    break;
+
+    case Node.FOLLOWER: for (; i < length; i++)
+      if (node.leader !== node.nodes[i].name) {
+        nodes.push(node.nodes[i]);
+      }
+    break;
+
+    case Node.CHILD:
+      Array.prototype.push.apply(nodes, node.nodes);
+    break;
+
+    default: for (; i < length; i++)
+      if (who === node.nodes[i].name) {
+        nodes.push(node.nodes[i]);
+      }
+  }
 
   /**
    * A small wrapper to force indefinitely sending of a certain packet.
@@ -538,24 +569,32 @@ Node.prototype.broadcast = function broadcast(packet) {
     client.write(data, function written(err, data) {
       latency.push(+new Date() - start);
 
-      if (latency.length === length) node.timing(latency);
-      if (err) return node.emit('error', err);
+      //
+      // OK, so this is the strange part here. We've broadcasted messages and
+      // got replies back. This reply contained data so we need to process it.
+      // What if the data is incorrect? Then we have no way at the moment to
+      // send back reply to a reply to the server.
+      //
+      if (err) node.emit('error', err);
+      else if (data) node.emit('data', data);
 
       //
-      // OK, so this is the strange part here. We've broadcasted message and
-      // got back a reply. This reply contained data so we need to process
-      // it. What if the data is incorrect? Then we have no way at the
-      // moment to send back reply to a reply to the server.
+      // Messaging has been completed.
       //
-      if (data) node.emit('data', data);
+      if (latency.length === length) {
+        node.timing(latency);
+      }
     });
   }
 
-  for (var i = 0; i < length; i++) {
-    wrapper(node.nodes[i], packet);
+  length = nodes.length;
+  i = 0;
+
+  for (; i < length; i++) {
+    wrapper(nodes[i], what);
   }
 
-  return this;
+  return node;
 };
 
 /**
@@ -625,7 +664,7 @@ Node.prototype.promote = function promote() {
   var packet = this.packet('vote')
     , i = 0;
 
-  this.broadcast(this.packet('vote'));
+  this.message(Node.FOLLOWER, this.packet('vote'));
 
   //
   // Set the election timeout. This gives the nodes some time to reach

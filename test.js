@@ -116,7 +116,7 @@ describe('liferaft', function () {
     });
   });
 
-  describe('#broadcast', function () {
+  describe('#message', function () {
     it('calls all joined nodes', function (next) {
       var pattern = '';
 
@@ -124,7 +124,7 @@ describe('liferaft', function () {
       raft.join(function () { pattern += 'b'; });
       raft.join(function () { pattern += 'c'; });
 
-      raft.broadcast(raft.packet('foo'), 1000);
+      raft.message(Raft.FOLLOWER, raft.packet('foo'));
 
       setTimeout(function () {
         assume(pattern).equals('abc');
@@ -145,7 +145,23 @@ describe('liferaft', function () {
         next();
       });
 
-      raft.broadcast(raft.packet('foo'));
+      raft.message(Raft.FOLLOWER, raft.packet('foo'));
+    });
+
+    it('sends message to cluster leader', function (next) {
+      var leader = raft.join(function (packet) {
+        assume(packet.leader).equals(this.name);
+        assume(packet.type).equals('leader');
+
+        next();
+      });
+
+      raft.join(function () { throw new Error('We are followers, not leader'); });
+      raft.join(function () { throw new Error('We are followers, not leader'); });
+      raft.join(function () { throw new Error('We are followers, not leader'); });
+
+      raft.change({ leader: leader.name });
+      raft.message(Raft.LEADER, raft.packet('leader'));
     });
   });
 
