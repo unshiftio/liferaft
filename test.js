@@ -163,6 +163,20 @@ describe('liferaft', function () {
       raft.change({ leader: leader.name });
       raft.message(Raft.LEADER, raft.packet('leader'));
     });
+
+    it('sends a node specified by name', function (next) {
+      raft.join(function () { throw new Error('You sir, msg the wrong node'); });
+
+      var node = raft.join(function (packet) {
+        assume(packet.type).equals('named');
+
+        next();
+      });
+
+      raft.join(function () { throw new Error('You sir, msg the wrong node'); });
+      raft.join(function () { throw new Error('You sir, msg the wrong node'); });
+      raft.message(node.name, raft.packet('named'));
+    });
   });
 
   describe('#timeout', function () {
