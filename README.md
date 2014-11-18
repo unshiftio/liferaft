@@ -108,6 +108,7 @@ Event               | Description
 `follower`          | Our state changed to follower.
 `candidate`         | Our state changed to candidate.
 `stopped`           | Our state changed to stopped.
+`heartbeat`         | The leader is about to send a heartbeat message.
 
 ---
 

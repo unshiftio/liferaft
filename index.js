@@ -499,11 +499,16 @@ Node.prototype.heartbeat = function heartbeat(duration) {
     }
 
     //
-    // @TODO this is a temporary hack to get the cluster running. According to
-    // the raft spec we should be sending empty append requests.
+    // According to the raft spec we should be sending empty append requests as
+    // heartbeat. We want to emit an event so people can modify or inspect the
+    // payload before we send it. It's also a good indication for when the
+    // idle state of a LEADER as it didn't get any messages to append/commit to
+    // the FOLLOWER'S.
     //
-    this.message(Node.FOLLOWER, this.packet('append'));
-    this.heartbeat(this.beat);
+    var packet = this.packet('append');
+
+    this.emit('heartbeat', packet);
+    this.message(Node.FOLLOWER, packet).heartbeat(this.beat);
   }, duration);
 
   return this;

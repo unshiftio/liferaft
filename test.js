@@ -679,6 +679,18 @@ describe('liferaft', function () {
         raft.emit('data', raft.packet('shizzle'));
       });
     });
+
+    describe('heartbeat', function () {
+      it('emits a heartbeat event when we are a leader', function (next) {
+        raft.once('heartbeat', function (packet) {
+          assume(packet.type).equals('append');
+          next();
+        });
+
+        raft.change({ state: Raft.LEADER });
+        raft.heartbeat();
+      });
+    });
   });
 
   //
