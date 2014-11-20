@@ -131,6 +131,8 @@ state will be set to `LifeRaft.LEADER`.
 
 ---
 
+**The rest of these properties are exposed on the LifeRaft `prototype`**
+
 ### LifeRaft#type(of)
 
 Check the type of the given thing. This returns the correct type for arrays,
