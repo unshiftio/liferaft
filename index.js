@@ -804,7 +804,7 @@ Node.prototype.leave = function leave(name) {
  * @returns {Boolean} Successful destruction.
  * @api public
  */
-Node.prototype.end = function end() {
+Node.prototype.end = Node.prototype.destroy = function end() {
   if (Node.STOPPED === this.state) return false;
   this.state = Node.STOPPED;
 

@@ -302,6 +302,8 @@ raft.promote();
 
 ### LifeRaft#end()
 
+**This method is also aliased as `.destroy`.**
+
 This signals that the node wants to be removed from the cluster. Once it has
 successfully removed it self, it will emit the `end` event.
 
