@@ -498,13 +498,25 @@ describe('liferaft', function () {
 
   describe('#join', function () {
     it('returns the node we added', function () {
+      assume(raft.nodes.length).equals(0);
+
       var node = raft.join();
 
       assume(node.name).does.not.equal(raft.name);
+      assume(raft.nodes.length).equals(1);
       assume(node).does.not.equal(raft);
       assume(node).is.instanceOf(Raft);
 
       node.end();
+    });
+
+    it('cannot add a server with the same address as it self', function () {
+      assume(raft.nodes.length).equals(0);
+
+      var node = raft.join(raft.name);
+
+      assume(node).is.a('undefined');
+      assume(raft.nodes.length).equals(0);
     });
 
     it('emits an `join` event when a new ode is added', function (next) {
@@ -888,13 +900,14 @@ describe('liferaft', function () {
       var ports = [port++, port++, port++, port++]
         , nodes = []
         , node
-        , i;
+        , i
+        , j;
 
       for (i = 0; i < ports.length; i++) {
         node = new Paddle(ports[i]);
         nodes.push(node);
 
-        for (var j = 0; j < ports.length; j++) {
+        for (j = 0; j < ports.length; j++) {
           if (ports[j] === ports[i]) continue;
 
           node.join(ports[j]);

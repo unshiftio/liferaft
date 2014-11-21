@@ -755,6 +755,13 @@ Node.prototype.join = function join(name, write) {
     write = name; name = null;
   }
 
+  //
+  // You shouldn't be able to join the cluster as your self. So we're going to
+  // add a really simple name check here. Return nothing so people can actually
+  // check if a node has been added.
+  //
+  if (this.name === name) return;
+
   var node = this.clone({
     write: write,       // Optional function that receives our writes.
     name: name,         // A custom name for the node we added.
