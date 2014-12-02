@@ -56,25 +56,25 @@ describe('liferaft', function () {
       assume(raft.election.min).equals(100);
     });
 
-    it('sets a unique name by default', function () {
+    it('sets a unique address by default', function () {
       var another = new Raft();
 
-      assume(raft.name).does.not.equal(another.name);
+      assume(raft.address).does.not.equal(another.address);
       another.end();
     });
 
-    it('can set a custom name', function () {
+    it('can set a custom address', function () {
       raft.end();
-      raft = new Raft({ name: 'foo' });
+      raft = new Raft({ address: 'foo' });
 
-      assume(raft.name).equals('foo');
+      assume(raft.address).equals('foo');
     });
 
-    it('accepts the name as first argument', function () {
+    it('accepts the address as first argument', function () {
       raft.end();
 
       raft = new Raft('foo');
-      assume(raft.name).equals('foo');
+      assume(raft.address).equals('foo');
     });
 
     it('will call the initialization function if exists', function (next) {
@@ -139,8 +139,8 @@ describe('liferaft', function () {
 
       raft.on('rpc', function (packet) {
         assume(packet.type).equals('external');
-        assume(packet.name).equals(node.name);
-        assume(raft.name).does.not.equal(node.name);
+        assume(packet.address).equals(node.address);
+        assume(raft.address).does.not.equal(node.address);
 
         next();
       });
@@ -150,7 +150,7 @@ describe('liferaft', function () {
 
     it('sends message to cluster leader', function (next) {
       var leader = raft.join(function (packet) {
-        assume(packet.leader).equals(this.name);
+        assume(packet.leader).equals(this.address);
         assume(packet.type).equals('leader');
 
         next();
@@ -160,22 +160,22 @@ describe('liferaft', function () {
       raft.join(function () { throw new Error('We are followers, not leader'); });
       raft.join(function () { throw new Error('We are followers, not leader'); });
 
-      raft.change({ leader: leader.name });
+      raft.change({ leader: leader.address });
       raft.message(Raft.LEADER, raft.packet('leader'));
     });
 
-    it('sends a node specified by name', function (next) {
+    it('sends a node specified by address', function (next) {
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
 
       var node = raft.join(function (packet) {
-        assume(packet.type).equals('named');
+        assume(packet.type).equals('address');
 
         next();
       });
 
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
-      raft.message(node.name, raft.packet('named'));
+      raft.message(node.address, raft.packet('address'));
     });
   });
 
@@ -373,7 +373,7 @@ describe('liferaft', function () {
     });
 
     it('resets the leader', function () {
-      raft.leader = raft.name;
+      raft.leader = raft.address;
       raft.promote();
       assume(raft.leader).equals('');
     });
@@ -391,7 +391,7 @@ describe('liferaft', function () {
 
       raft.promote();
 
-      assume(raft.votes.for).equals(raft.name);
+      assume(raft.votes.for).equals(raft.address);
       assume(raft.votes.granted).equals(1);
     });
   });
@@ -408,8 +408,8 @@ describe('liferaft', function () {
       assume(obj.term).is.a('number');
       assume(obj.term).equals(raft.term);
 
-      assume(obj.name).is.a('string');
-      assume(obj.name).equals(raft.name);
+      assume(obj.address).is.a('string');
+      assume(obj.address).equals(raft.address);
 
       assume(obj.leader).equals(raft.leader);
 
@@ -502,7 +502,7 @@ describe('liferaft', function () {
 
       var node = raft.join();
 
-      assume(node.name).does.not.equal(raft.name);
+      assume(node.address).does.not.equal(raft.address);
       assume(raft.nodes.length).equals(1);
       assume(node).does.not.equal(raft);
       assume(node).is.instanceOf(Raft);
@@ -513,7 +513,7 @@ describe('liferaft', function () {
     it('cannot add a server with the same address as it self', function () {
       assume(raft.nodes.length).equals(0);
 
-      var node = raft.join(raft.name);
+      var node = raft.join(raft.address);
 
       assume(node).is.a('undefined');
       assume(raft.nodes.length).equals(0);
@@ -546,12 +546,12 @@ describe('liferaft', function () {
       draft.end();
     });
 
-    it('allows setting of node with a custom name', function () {
+    it('allows setting of node with a custom address', function () {
       var node = raft.join('foo');
 
       assume(node).does.not.equal(raft);
       assume(node).is.instanceOf(Raft);
-      assume(node.name).equals('foo');
+      assume(node.address).equals('foo');
 
       node.end();
     });
@@ -581,7 +581,7 @@ describe('liferaft', function () {
           next();
         });
 
-        raft.votes.for = raft.name;
+        raft.votes.for = raft.address;
         raft.votes.granted++;
 
         raft.change({ term: 2 });
@@ -719,7 +719,7 @@ describe('liferaft', function () {
 
           raft.change({ term: 139 });
           raft.emit('data', {
-            name: 'vladimir',
+            address: 'vladimir',
             type: 'vote',
             term: 138
           });
@@ -736,8 +736,8 @@ describe('liferaft', function () {
           });
 
           raft.change({ term: 139 });
-          raft.emit('data', { name: 'vladimir', term: raft.term, type: 'vote' });
-          raft.emit('data', { name: 'anatoly', term: raft.term, type: 'vote' });
+          raft.emit('data', { address: 'vladimir', term: raft.term, type: 'vote' });
+          raft.emit('data', { address: 'anatoly', term: raft.term, type: 'vote' });
         });
       });
 
@@ -750,7 +750,7 @@ describe('liferaft', function () {
             data: { granted: true },
             term: raft.term,
             state: Raft.FOLLOWER,
-            name: 'foobar',
+            address: 'foobar',
             type: 'voted'
           });
 
@@ -767,7 +767,7 @@ describe('liferaft', function () {
             data: { granted: true },
             term: raft.term,
             state: Raft.FOLLOWER,
-            name: 'foobar',
+            address: 'foobar',
             type: 'voted'
           });
 
@@ -784,7 +784,7 @@ describe('liferaft', function () {
             data: { granted: false },
             term: raft.term,
             state: Raft.FOLLOWER,
-            name: 'foobar',
+            address: 'foobar',
             type: 'voted'
           });
 
@@ -820,7 +820,7 @@ describe('liferaft', function () {
               data: { granted: true },
               term: raft.term,
               state: Raft.FOLLOWER,
-              name: 'foobar',
+              address: 'foobar',
               type: 'voted'
             });
           }
@@ -854,14 +854,14 @@ describe('liferaft', function () {
           socket.on('data', function (buff) {
             var data = JSON.parse(buff.toString());
 
-            debug(raft.name +':packet#data', data);
+            debug(raft.address +':packet#data', data);
             raft.emit('data', data, function reply(data) {
-              debug(raft.name +':packet#reply', data);
+              debug(raft.address +':packet#reply', data);
               socket.write(JSON.stringify(data));
               socket.end();
             });
           });
-        }).listen(this.name);
+        }).listen(this.address);
 
         this.once('end', function enc() {
           server.close();
@@ -876,10 +876,10 @@ describe('liferaft', function () {
        * @api public
        */
       write: function write(packet, fn) {
-        var socket = net.connect(this.name)
+        var socket = net.connect(this.address)
           , raft = this;
 
-        debug(raft.name +':packet#write', packet);
+        debug(raft.address +':packet#write', packet);
         socket.on('error', fn);
         socket.on('data', function (buff) {
           var data;
@@ -887,7 +887,7 @@ describe('liferaft', function () {
           try { data = JSON.parse(buff.toString()); }
           catch (e) { return fn(e); }
 
-          debug(raft.name +':packet#callback', packet);
+          debug(raft.address +':packet#callback', packet);
           fn(undefined, data);
         });
 
@@ -922,7 +922,7 @@ describe('liferaft', function () {
         });
 
         nodes[i].on('leader change', function (to, from) {
-          assume(to).equals(node.name);
+          assume(to).equals(node.address);
         });
       }
 
@@ -940,7 +940,7 @@ describe('liferaft', function () {
         for (i = 0; i < nodes.length; i++) {
           if (node === nodes[i]) continue;
 
-          assume(nodes[i].leader).equals(node.name);
+          assume(nodes[i].leader).equals(node.address);
           assume(nodes[i].state).equals(Raft.FOLLOWER);
           assume(nodes[i].term).equals(node.term);
         }

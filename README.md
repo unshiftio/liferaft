@@ -27,8 +27,8 @@ npm install --save liferaft
   - [LifeRaft#indefinitely()](#liferaftindefinitelyattempt-fn-timeout)
   - [LifeRaft#packet()](#liferaftpackettype-data)
   - [LifeRaft#message()](#liferaftmessagewho-what-when)
-  - [LifeRaft#join()](#liferaftjoinname-write)
-  - [LifeRaft#leave()](#liferaftleavename)
+  - [LifeRaft#join()](#liferaftjoinaddress-write)
+  - [LifeRaft#leave()](#liferaftleaveaddress)
   - [LifeRaft#promote()](#liferaftpromote)
   - [LifeRaft#end()](#liferaftend)
 - [Extending](#extending)
@@ -44,7 +44,7 @@ following:
 'use strict';
 
 var LifeRaft = require('liferaft')
-  , raft = new Raft('name', { /* optional options */});
+  , raft = new Raft('address', { /* optional options */});
 ```
 
 Please note that the instructions for Node.js and browser are exactly the same
@@ -65,7 +65,7 @@ There are literally thousands of different transport libraries that you can use.
 There are a couple of default options that you can configure in the constructor
 of your Raft:
 
-- `name` A unique name of the node that we just created. If none is supplied we
+- `address` A unique address of the node that we just created. If none is supplied we
   will generate a random UUID.
 - `heartbeat` The heartbeat timeout. Make sure that this value is lower then
   your minimum election timeout and take message latency in consideration when
@@ -215,8 +215,8 @@ These packages will contain the following information:
 
 - `state` If we are a `LEADER`, `FOLLOWER` or `CANDIDATE`
 - `term` Our current term.
-- `name` The name of this node.
-- `leader` The name of our leader.
+- `address` The address of this node.
+- `leader` The address of our leader.
 - `last` If logs are enabled we also include the last committed term and index.
 
 And of course also the `type` which is the type you passed this function in and
@@ -235,7 +235,7 @@ features that this library is offering. This method accepts 2 arguments:
   - `LifeRaft.LEADER`: Send message to the current leader.
   - `LifeRaft.FOLLOWER`: Send to everybody who is not a leader.
   - `LifeRaft.CHILD`: Send to every child in the cluster (everybody).
-  - `<node name>`: Find the node based on the provided name.
+  - `<node address>`: Find the node based on the provided address.
 2. `what`, The message body you want to use. We high suggest using the `.packet`
    method for constructing cluster messages so additional state can be send.
 3. `when`, Optional completion callback for when all messages are send.
@@ -243,7 +243,7 @@ features that this library is offering. This method accepts 2 arguments:
 This message does have a side affect it also calculates the latency for sending
 the messages so we know if we are dangerously close to our threshold.
 
-### LifeRaft#join(name, write)
+### LifeRaft#join(address, write)
 
 Add a new raft node to your cluster. All parameters are optional but normally
 you would pass in the name or address with the location of the server you want
@@ -263,14 +263,14 @@ as argument:
 
 ```js
 raft.on('join', function join(node) {
-  console.log(node.name); // 127.0.0.1:8080
+  console.log(node.address); // 127.0.0.1:8080
 });
 ```
 
-### LifeRaft#leave(name)
+### LifeRaft#leave(address)
 
 Now that you've added a new node to your raft cluster it's also good to know
-that you remove them again. This method either accepts the name of the node that
+that you remove them again. This method either accepts the address of the node that
 you want to remove from the cluster or the returned `node` that was returned
 from the [`LifeRaft.join`](#liferaftjoin) method.
 
@@ -284,7 +284,7 @@ argument:
 
 ```js
 raft.on('leave', function leave(node) {
-  console.log(node.name); // 127.0.0.1:8080
+  console.log(node.address); // 127.0.0.1:8080
 });
 ```
 
@@ -349,7 +349,7 @@ will default to empty object so this argument is always an available.
 var LifeBoat = LifeRaft.extend({
   socket: null,
   initialize: function initialize(options) {
-    this.socket = new CustomTransport(this.name);
+    this.socket = new CustomTransport(this.address);
   }
 });
 ```

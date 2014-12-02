@@ -35,7 +35,7 @@ function nope() {}
  *
  * Options:
  *
- * - `name`: An unique id of this given node.
+ * - `address`: An unique id of this given node.
  * - `heartbeat`: Heartbeat timeout.
  * - `election min`: Minimum election timeout.
  * - `election max`: Maximum election timeout.
@@ -51,17 +51,17 @@ function nope() {}
  * well.
  *
  * @constructor
- * @param {Mixed} name Unique id or name of this given node.
+ * @param {Mixed} address Unique address, id or name of this given node.
  * @param {Object} options Node configuration.
  * @api public
  */
-function Node(name, options) {
+function Node(address, options) {
   if (!(this instanceof Node)) return new Node(options);
 
   options = options || {};
 
-  if ('object' === typeof name) options = name;
-  else if (!options.name) options.name = name;
+  if ('object' === typeof address) options = address;
+  else if (!options.address) options.address = address;
 
   this.election = {
     min: Tick.parse(options['election min'] || '150 ms'),
@@ -77,7 +77,7 @@ function Node(name, options) {
 
   this.write = this.write || options.write || null;
   this.threshold = options.threshold || 0.8;
-  this.name = options.name || UUID();
+  this.address = options.address || UUID();
   this.timers = new Tick(this);
   this.Log = options.Log;
   this.latency = 0;
@@ -183,7 +183,7 @@ Node.prototype._initialize = function initialize(options) {
     //
     if (packet.term > this.term) {
       this.change({
-        leader: Node.LEADER === packet.state ? packet.name : packet.leader || this.leader,
+        leader: Node.LEADER === packet.state ? packet.address : packet.leader || this.leader,
         state: Node.FOLLOWER,
         term: packet.term
       });
@@ -205,7 +205,7 @@ Node.prototype._initialize = function initialize(options) {
     //
     if (Node.LEADER === packet.state) {
       if (Node.FOLLOWER !== this.state) this.change({ state: Node.FOLLOWER });
-      if (packet.name !== this.leader) this.change({ leader: packet.name });
+      if (packet.address !== this.leader) this.change({ leader: packet.address });
 
       //
       // Always when we receive an message from the Leader we need to reset our
@@ -227,7 +227,7 @@ Node.prototype._initialize = function initialize(options) {
         // The term of the vote is bigger then ours so we need to update it. If
         // it's the same and we already voted, we need to deny the vote.
         //
-        if (this.votes.for && this.votes.for !== packet.name) {
+        if (this.votes.for && this.votes.for !== packet.address) {
           this.emit('vote', packet, false);
           return write(this.packet('voted', { granted: false }));
         }
@@ -252,9 +252,9 @@ Node.prototype._initialize = function initialize(options) {
         // candidate came in first so it gets our vote as all requirements are
         // met.
         //
-        this.votes.for = packet.name;
+        this.votes.for = packet.address;
         this.emit('vote', packet, true);
-        this.change({ leader: packet.name, term: packet.term });
+        this.change({ leader: packet.address, term: packet.term });
         write(this.packet('voted', { granted: true }));
 
         //
@@ -290,7 +290,7 @@ Node.prototype._initialize = function initialize(options) {
         // current voting round to be considered valid.
         //
         if (this.quorum(this.votes.granted)) {
-          this.change({ leader: this.name, state: Node.LEADER });
+          this.change({ leader: this.address, state: Node.LEADER });
 
           //
           // Send a heartbeat message to all connected clients.
@@ -521,7 +521,7 @@ Node.prototype.heartbeat = function heartbeat(duration) {
  * - Node.LEADER   : Send a message to cluster's current leader.
  * - Node.FOLLOWER : Send a message to all non leaders.
  * - Node.CHILD    : Send a message to everybody.
- * - <name>        : Send a message to a node based on the name.
+ * - <address>     : Send a message to a node based on the address.
  *
  * @param {Mixed} who Recipient of the message.
  * @param {Mixed} what The data we need to send.
@@ -540,13 +540,13 @@ Node.prototype.message = function message(who, what, when) {
 
   switch (who) {
     case Node.LEADER: for (; i < length; i++)
-      if (node.leader === node.nodes[i].name) {
+      if (node.leader === node.nodes[i].address) {
         nodes.push(node.nodes[i]);
       }
     break;
 
     case Node.FOLLOWER: for (; i < length; i++)
-      if (node.leader !== node.nodes[i].name) {
+      if (node.leader !== node.nodes[i].address) {
         nodes.push(node.nodes[i]);
       }
     break;
@@ -556,7 +556,7 @@ Node.prototype.message = function message(who, what, when) {
     break;
 
     default: for (; i < length; i++)
-      if (who === node.nodes[i].name) {
+      if (who === node.nodes[i].address) {
         nodes.push(node.nodes[i]);
       }
   }
@@ -659,7 +659,7 @@ Node.prototype.promote = function promote() {
   // Candidates are always biased and vote for them selfs first before sending
   // out a voting request to all other nodes in the cluster.
   //
-  this.votes.for = this.name;
+  this.votes.for = this.address;
   this.votes.granted = 1;
 
   //
@@ -693,11 +693,11 @@ Node.prototype.promote = function promote() {
  */
 Node.prototype.packet = function wrap(type, data) {
   var packet = {
-    state:  this.state,   // So you know if we're a leader, candidate or follower.
-    term:   this.term,    // Our current term so we can find mis matches.
-    name:   this.name,    // Name of the sender.
-    type:   type,         // Message type.
-    leader: this.leader,  // Who is our leader.
+    state:   this.state,    // So you know if we're a leader, candidate or follower.
+    term:    this.term,     // Our current term so we can find mis matches.
+    address: this.address,  // Adress of the sender.
+    type:    type,          // Message type.
+    leader:  this.leader,   // Who is our leader.
   };
 
   //
@@ -735,6 +735,7 @@ Node.prototype.clone = function clone(options) {
 
   for (key in node) {
     if (key in options || !node.hasOwnProperty(key)) continue;
+
     options[key] = node[key];
   }
 
@@ -745,26 +746,26 @@ Node.prototype.clone = function clone(options) {
  * A new node is about to join the cluster. So we need to upgrade the
  * configuration of every single node.
  *
- * @param {String} name The name of the node that is connected.
+ * @param {String} address The address of the node that is connected.
  * @param {Function} write A method that we use to write data.
  * @returns {Node} The node we created and that joined our cluster.
  * @api public
  */
-Node.prototype.join = function join(name, write) {
-  if ('function' === this.type(name)) {
-    write = name; name = null;
+Node.prototype.join = function join(address, write) {
+  if ('function' === this.type(address)) {
+    write = address; address = null;
   }
 
   //
   // You shouldn't be able to join the cluster as your self. So we're going to
-  // add a really simple name check here. Return nothing so people can actually
+  // add a really simple address check here. Return nothing so people can actually
   // check if a node has been added.
   //
-  if (this.name === name) return;
+  if (this.address === address) return;
 
   var node = this.clone({
     write: write,       // Optional function that receives our writes.
-    name: name,         // A custom name for the node we added.
+    address: address,   // A custom address for the node we added.
     state: Node.CHILD   // We are a node in the cluster.
   });
 
@@ -781,15 +782,16 @@ Node.prototype.join = function join(name, write) {
 /**
  * Remove a node from the cluster.
  *
+ * @param {String} address The address of the node that should be removed.
  * @returns {Node} The node that we removed.
  * @api public
  */
-Node.prototype.leave = function leave(name) {
+Node.prototype.leave = function leave(address) {
   var index = -1
     , node;
 
   for (var i = 0; i < this.nodes.length; i++) {
-    if (this.nodes[i] === name || this.nodes[i].name === name) {
+    if (this.nodes[i] === address || this.nodes[i].address === address) {
       node = this.nodes[i];
       index = i;
       break;
@@ -798,6 +800,7 @@ Node.prototype.leave = function leave(name) {
 
   if (~index && node) {
     if (node.end) node.end();
+
     this.nodes.splice(index, 1);
     this.emit('leave', node);
   }
