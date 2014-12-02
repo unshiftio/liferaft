@@ -1,7 +1,7 @@
 {
   "name": "liferaft",
-  "version": "0.0.2",
-  "description": "Consensus protocol based on raft, but only for saving lifes.",
+  "version": "0.1.0",
+  "description": "Consensus protocol based on raft, it will one day save your live.",
   "main": "index.js",
   "scripts": {
     "test": "mocha --reporter spec --ui bdd test.js",
