@@ -91,6 +91,48 @@ describe('liferaft', function () {
 
       new MyRaft();
     });
+
+    it('async emits the initialize event once the initialize method is done', function (next) {
+      var ready = false;
+
+      var MyRaft = Raft.extend({
+        initialize: function initialize(options, init) {
+          assume(options.custom).equals('options');
+          assume(ready).is.false();
+
+          setTimeout(function () {
+            ready = true;
+            init();
+          }, 100);
+        }
+      });
+
+      var raft = new MyRaft('foobar', { custom: 'options' });
+
+      raft.on('initialize', function () {
+        assume(ready).is.true();
+
+        next();
+      });
+    });
+
+    it('emits error when the initialize fails', function (next) {
+      var MyRaft = Raft.extend({
+        initialize: function initialize(options, init) {
+          setTimeout(function () {
+            init(new Error('Failure'));
+          }, 100);
+        }
+      });
+
+      var raft = new MyRaft();
+
+      raft.on('error', function (err) {
+        assume(err.message).equals('Failure');
+
+        next();
+      });
+    });
   });
 
   describe('#indefinitely', function () {
