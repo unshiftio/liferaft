@@ -338,12 +338,19 @@ var LifeBoat = LifeRaft.extend({
 
 When you extend the `LifeRaft` instance you can assign a special `initialize`
 method. This method will be called when our `LifeRaft` code has been fully
-initialized and we're ready to initialize your code. Please bare in mind that
-this is a synchronous invocation and that we will start heart beat timeout after
-the execution of the function. This method is ideal for implementing your own
-transport technology. The function is invoked with one argument, these are the
-options that were used to construct the instance. If no options were provided we
-will default to empty object so this argument is always an available.
+initialized and we're ready to initialize your code. The invocation type depends
+on the amount of arguments you specify in the function.
+
+- **synchronous**: Your function specifies less then 2 arguments, it will
+  receive one argument which is the options object that was provided in the
+  constructor. If no options were provided it will be an empty object.
+- **asynchronous**: Your function specifies 2 arguments, just like the
+  synchronous execution it will receive the passed options as first argument but
+  it will also receive a callback function as second argument. This callback
+  should be executed once you're done with setting up your transport and you are
+  ready to receive messages. The function follows an error first pattern so it
+  receives an error as first argument it will emit the `error` event on the
+  constructed instance.
 
 ```js
 var LifeBoat = LifeRaft.extend({
@@ -352,10 +359,31 @@ var LifeBoat = LifeRaft.extend({
     this.socket = new CustomTransport(this.address);
   }
 });
+
+//
+// Or in async mode:
+//
+var LifeBoat = LifeRaft.extend({
+  server: null,
+  initialize: function initialize(options, fn) {
+    this.server = require('net').createServer(function () {
+      // Do stuff here to handle incoming connections etc.
+    }.bind(this));
+
+    var next = require('one-time')(fn);
+
+    this.server.once('listening', next);
+    this.server.once('error', next);
+
+    this.server.listen(this.address);
+  }
+})
 ```
 
-In parallel to the execution of your `initialize` method we also emit an
-`initialize` event. This receives the same amount of arguments.
+After your `initialize` method is called we will emit the `initialize` event. If
+your `initialize` method is asynchronous we will emit the event **after** the
+callback has been executed. Once the event is emitted we will start our timeout
+timers and hope that we will receive message in time.
 
 ## License
 
