@@ -32,7 +32,7 @@ npm install --save liferaft
   - [LifeRaft#promote()](#liferaftpromote)
   - [LifeRaft#end()](#liferaftend)
 - [Extending](#extending)
-  - [Initialization](#initialization)
+- [Transports](#transports)
 - [License](#license)
 
 ## Usage
@@ -173,7 +173,7 @@ raft.majority(); // 4
 
 ### LifeRaft#indefinitely(attempt, fn, timeout)
 
-According to section x.x of the Raft paper it's required that we retry sending
+According to section 5.3 of the Raft paper it's required that we retry sending
 the RPC messages until they succeed. This function will run the given `attempt`
 function until the received callback has been called successfully and within our
 given timeout. If this is not the case we will call the attempt function again
@@ -334,7 +334,42 @@ var LifeBoat = LifeRaft.extend({
 });
 ```
 
-### Initialization
+## Transports
+
+The library ships without transports by default. If we we're to implement this
+it would have made this library way to opinionated. You might want to leverage
+and existing infrastructure or library for messaging instead of going with our
+solution. There are only two methods you need to implement an `initialize`
+method and an `write` method. Both methods serve different use cases so we're
+going to take a closer look at both of them.
+
+### write
+
+```js
+var LifeBoat = LifeRaft.extend({
+  socket: null,
+  write: function write(packet, callback) {
+    if (!this.socket) this.socket = require('net').connect(this.address);
+    this.socket.write(JSON.stringify(packet));
+
+    // More code here ;-)
+  }
+});
+```
+
+There are a couple of things that we assume you implement in the write
+method:
+
+- **Message encoding** The packet that you receive is an JSON object but you
+  have to decide how you're going transfer that over the write in the most
+  efficient way for you.
+- **message resending** The Raft protocol states the messages that you write
+  should be retried until indefinitely ([Raft 5.3][5.3]). There are already
+  transports which do this automatically for you but if your's is missing this,
+  the [LifeRaft#indefinitely()](#liferaftindefinitelyattempt-fn-timeout) is
+  specifically written for this.
+
+### initialize
 
 When you extend the `LifeRaft` instance you can assign a special `initialize`
 method. This method will be called when our `LifeRaft` code has been fully
@@ -391,3 +426,15 @@ MIT
 
 [Raft]: https://ramcloud.stanford.edu/raft.pdf
 [Browserify]: http://browserify.org/
+[5]: https://github.com/unshiftio/liferaft/blob/master/raft.md#5-the-raft-consensus-algorithm
+[5.1]: https://github.com/unshiftio/liferaft/blob/master/raft.md#51-raft-basics
+[5.2]: https://github.com/unshiftio/liferaft/blob/master/raft.md#52-leader-election
+[5.3]: https://github.com/unshiftio/liferaft/blob/master/raft.md#53-log-replication
+[5.4]: https://github.com/unshiftio/liferaft/blob/master/raft.md#54-safety
+[5.4.1]: https://github.com/unshiftio/liferaft/blob/master/raft.md#541-election-restriction
+[5.4.2]: https://github.com/unshiftio/liferaft/blob/master/raft.md#542-committing-entries-from-previous-terms
+[5.4.3]: https://github.com/unshiftio/liferaft/blob/master/raft.md#543-safety-argument
+[5.5]: https://github.com/unshiftio/liferaft/blob/master/raft.md#55-follower-and-candidate-crashes
+[5.6]: https://github.com/unshiftio/liferaft/blob/master/raft.md#56-timing-and-availability
+[6]: https://github.com/unshiftio/liferaft/blob/master/raft.md#6-cluster-membership-changes
+[7]: https://github.com/unshiftio/liferaft/blob/master/raft.md#7-log-compaction
