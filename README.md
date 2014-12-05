@@ -85,6 +85,18 @@ should be promoted to master. The election timeout is the time it may take to
 reach a consensus about the master election process. If this times out, we will
 start another re-election.
 
+```js
+var raft = new Raft({ 
+  'address': 'tcp://localhost:8089',
+  'election min': '200 millisecond',
+  'election max': '1 second'
+});
+```
+
+As you might have noticed we're using two different styles of passing in the
+address to the raft instance, as address property in the options and as first
+argument in the constructor.
+
 ### Events
 
 The `liferaft` module is an `EventEmitter` at it's core and is quite chatty
