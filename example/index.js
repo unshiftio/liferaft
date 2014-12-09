@@ -31,15 +31,17 @@ var MsgRaft = LifeRaft.extend({
     var raft = this
       , socket;
 
-    debug('initializing reply socket on port %s', raft.name);
+    debug('initializing reply socket on port %s', raft.address);
 
     socket = raft.socket = msg.socket('rep');
 
-    socket.bind(raft.name);
-    socket.on('message', raft.emits('data'));
+    socket.bind(raft.address);
+    socket.on('message', function (data, fn) {
+      raft.emit('data', data, fn);
+    });
 
     socket.on('error', function err() {
-      debug('failed to initialize on port: ', raft.name);
+      debug('failed to initialize on port: ', raft.address);
     });
   },
 
@@ -57,13 +59,13 @@ var MsgRaft = LifeRaft.extend({
     if (!socket) {
       socket = raft.socket = msg.socket('req');
 
-      socket.connect(raft.name);
+      socket.connect(raft.address);
       socket.on('error', function err() {
-        console.error('failed to write to: ', raft.name);
+        console.error('failed to write to: ', raft.address);
       });
     }
 
-    debug('writing packet to socket on port %s', raft.name);
+    debug('writing packet to socket on port %s', raft.address);
     socket.send(packet, function (data) {
       fn(undefined, data);
     });
