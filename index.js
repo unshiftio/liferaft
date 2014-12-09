@@ -2,7 +2,8 @@
 
 var EventEmitter = require('eventemitter3')
   , Tick = require('tick-tock')
-  , one = require('one-time');
+  , ms = require('millisecond')
+  , one = require('one-time')
 
 /**
  * Generate a somewhat unique UUID.
@@ -66,11 +67,11 @@ function Raft(address, options) {
   else if (!options.address) options.address = address;
 
   raft.election = {
-    min: Tick.parse(options['election min'] || '150 ms'),
-    max: Tick.parse(options['election max'] || '300 ms')
+    min: ms(options['election min'] || '150 ms'),
+    max: ms(options['election max'] || '300 ms')
   };
 
-  raft.beat = Tick.parse(options.heartbeat || '50 ms');
+  raft.beat = ms(options.heartbeat || '50 ms');
 
   raft.votes = {
     for: null,                // Who did we vote for in this current term.
