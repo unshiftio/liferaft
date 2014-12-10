@@ -3,7 +3,7 @@
 var EventEmitter = require('eventemitter3')
   , Tick = require('tick-tock')
   , ms = require('millisecond')
-  , one = require('one-time')
+  , one = require('one-time');
 
 /**
  * Generate a somewhat unique UUID.
@@ -169,6 +169,7 @@ Raft.prototype._initialize = function initializing(options) {
     if ('object' !== raft.type(packet)) {
       reason = 'Invalid packet received';
       raft.emit('error', new Error(reason));
+
       return write(raft.packet('error', reason));
     }
 
@@ -191,6 +192,7 @@ Raft.prototype._initialize = function initializing(options) {
     } else if (packet.term < raft.term) {
       reason = 'Stale term detected, received `'+ packet.term +'` we are at '+ raft.term;
       raft.emit('error', new Error(reason));
+
       return write(raft.packet('error', reason));
     }
 
@@ -230,6 +232,7 @@ Raft.prototype._initialize = function initializing(options) {
         //
         if (raft.votes.for && raft.votes.for !== packet.address) {
           raft.emit('vote', packet, false);
+
           return write(raft.packet('voted', { granted: false }));
         }
 
@@ -245,6 +248,7 @@ Raft.prototype._initialize = function initializing(options) {
           || raft.term > packet.last.term
         )) {
           raft.emit('vote', packet, false);
+
           return write(raft.packet('voted', { granted: false }));
         }
 
@@ -374,7 +378,7 @@ Raft.prototype._initialize = function initializing(options) {
   }
 
   if ('function' === raft.type(raft.initialize)) {
-    if (raft.initialize.length > 1) return raft.initialize(options, initialize);
+    if (raft.initialize.length === 2) return raft.initialize(options, initialize);
     raft.initialize(options);
   }
 
@@ -442,6 +446,7 @@ Raft.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
       raft.timers.setImmediate(uuid +'@async', function async() {
         if (err) {
           raft.emit('error', err);
+
           return again();
         }
 
@@ -506,12 +511,14 @@ Raft.prototype.heartbeat = function heartbeat(duration) {
 
   if (raft.timers.active('heartbeat')) {
     raft.timers.adjust('heartbeat', duration);
+
     return raft;
   }
 
   raft.timers.setTimeout('heartbeat', function heartbeattimeout() {
     if (Raft.LEADER !== raft.state) {
       raft.emit('heartbeat timeout');
+
       return raft.promote();
     }
 
@@ -605,6 +612,7 @@ Raft.prototype.message = function message(who, what, when) {
       //
       if (latency.length === length) {
         raft.timing(latency);
+        latency.length = nodes.length = 0;
       }
     });
   }
