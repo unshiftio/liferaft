@@ -727,7 +727,7 @@ Raft.prototype.packet = function wrap(type, data) {
     , packet = {
       state:   raft.state,    // Are we're a leader, candidate or follower.
       term:    raft.term,     // Our current term so we can find mis matches.
-      address: raft.address,  // Adress of the sender.
+      address: raft.address,  // Address of the sender.
       type:    type,          // Message type.
       leader:  raft.leader,   // Who is our leader.
     };
