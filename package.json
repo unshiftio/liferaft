@@ -4,10 +4,11 @@
   "description": "Consensus protocol based on raft, it will one day save your live.",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --reporter spec --ui bdd test.js",
-    "watch": "mocha --watch --reporter spec --ui bdd test.js",
-    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- --reporter spec --ui bdd test.js",
-    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- --reporter spec --ui bdd test.js"
+    "100%": "istanbul check-coverage --statements 100 --functions 100 --lines 100 --branches 100",
+    "test": "mocha test.js",
+    "watch": "mocha --watch test.js",
+    "coverage": "istanbul cover ./node_modules/.bin/_mocha -- test.js",
+    "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- test.js"
   },
   "repository": {
     "type": "git",
@@ -37,7 +38,7 @@
     "assume": "0.0.x",
     "diagnostics": "0.0.x",
     "istanbul": "0.3.x",
-    "mocha": "2.0.x",
+    "mocha": "2.1.x",
     "pre-commit": "0.0.x"
   }
 }
