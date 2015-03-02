@@ -31,6 +31,7 @@
     "extendible": "0.1.x",
     "immediate": "3.0.x",
     "millisecond": "0.0.x",
+    "modification": "1.0.x",
     "one-time": "0.0.x",
     "tick-tock": "0.1.x"
   },

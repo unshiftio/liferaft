@@ -106,7 +106,12 @@ function Raft(address, options) {
 Raft.extend = require('extendible');
 Raft.prototype = new EventEmitter();
 Raft.prototype.constructor = Raft;
+
+//
+// Add some methods which are best done using modules.
+//
 Raft.prototype.emits = require('emits');
+Raft.prototype.change = require('modification')(' change');
 
 /**
  * Raft §5.1:
@@ -465,34 +470,6 @@ Raft.prototype.indefinitely = function indefinitely(attempt, fn, timeout) {
   }());
 
   return this;
-};
-
-/**
- * Process a change in the raft.
- *
- * @param {Object} changed Data that is changed.
- * @returns {Raft}
- * @api private
- */
-Raft.prototype.change = function change(changed) {
-  var changes = ['term', 'leader', 'state']
-    , currently, previously
-    , raft = this
-    , i = 0;
-
-  if (!changed) return raft;
-
-  for (; i < changes.length; i++) {
-    if (changes[i] in changed && changed[changes[i]] !== raft[changes[i]]) {
-      currently = changed[changes[i]];
-      previously = raft[changes[i]];
-
-      raft[changes[i]] = currently;
-      raft.emit(changes[i] +' change', currently, previously);
-    }
-  }
-
-  return raft;
 };
 
 /**
