@@ -219,6 +219,32 @@ describe('liferaft', function () {
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
       raft.message(node.address, raft.packet('address'));
     });
+
+    it('runs the `when` callback with no errors', function (next) {
+      var node = raft.join(function (data, callback) {
+        callback(null, 'foo');
+      });
+      node.address = 'addr';
+
+      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
+        assume(err).equals(null);
+        assume(data).deep.equals({ addr: 'foo' });
+        next();
+      });
+    });
+
+    it('runs the `when` callback with no errors', function (next) {
+      var node = raft.join(function (data, callback) {
+        callback('bar');
+      });
+      node.address = 'addr';
+
+      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
+        assume(err).deep.equals({ addr: 'bar' });
+        assume(data).deep.equals({});
+        next();
+      });
+    });
   });
 
   describe('#timeout', function () {

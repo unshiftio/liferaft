@@ -537,7 +537,9 @@ Raft.prototype.message = function message(who, what, when) {
     , latency = []
     , raft = this
     , nodes = []
-    , i = 0;
+    , i = 0
+    , hasErrors = false
+    , output = { errors: {}, results: {} };
 
   switch (who) {
     case Raft.LEADER: for (; i < length; i++)
@@ -576,6 +578,17 @@ Raft.prototype.message = function message(who, what, when) {
       latency.push(+new Date() - start);
 
       //
+      // Add the error or output to our `output` object to be
+      // passed to the callback when all the writing is done.
+      //
+      if (err) {
+        hasErrors = true;
+        output.errors[client.address] = err;
+      } else {
+        output.results[client.address] = data;
+      }
+
+      //
       // OK, so this is the strange part here. We've broadcasted messages and
       // got replies back. This reply contained data so we need to process it.
       // What if the data is incorrect? Then we have no way at the moment to
@@ -589,6 +602,7 @@ Raft.prototype.message = function message(who, what, when) {
       //
       if (latency.length === length) {
         raft.timing(latency);
+        when(hasErrors ? output.errors : null, output.results);
         latency.length = nodes.length = 0;
       }
     });
