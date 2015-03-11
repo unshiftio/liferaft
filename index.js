@@ -540,13 +540,13 @@ Raft.prototype.message = function message(who, what, when) {
     throw new Error('Cannot send message to `undefined`. Check your spelling!');
   }
 
-  var length = this.nodes.length
+  var output = { errors: {}, results: {} }
+    , length = this.nodes.length
+    , errors = false
     , latency = []
     , raft = this
     , nodes = []
-    , i = 0
-    , hasErrors = false
-    , output = { errors: {}, results: {} };
+    , i = 0;
 
   switch (who) {
     case Raft.LEADER: for (; i < length; i++)
@@ -589,7 +589,7 @@ Raft.prototype.message = function message(who, what, when) {
       // passed to the callback when all the writing is done.
       //
       if (err) {
-        hasErrors = true;
+        errors = true;
         output.errors[client.address] = err;
       } else {
         output.results[client.address] = data;
@@ -609,7 +609,7 @@ Raft.prototype.message = function message(who, what, when) {
       //
       if (latency.length === length) {
         raft.timing(latency);
-        when(hasErrors ? output.errors : null, output.results);
+        when(errors ? output.errors : undefined, output.results);
         latency.length = nodes.length = 0;
       }
     });

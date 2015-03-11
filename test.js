@@ -228,12 +228,12 @@ describe('liferaft', function () {
 
     it('runs the `when` callback with no errors', function (next) {
       var node = raft.join(function (data, callback) {
-        callback(null, 'foo');
+        callback(undefined, 'foo');
       });
       node.address = 'addr';
 
       raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
-        assume(err).equals(null);
+        assume(err).equals(undefined);
         assume(data).deep.equals({ addr: 'foo' });
         next();
       });
