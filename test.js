@@ -219,6 +219,12 @@ describe('liferaft', function () {
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
       raft.message(node.address, raft.packet('address'));
     });
+
+    it('throws an error on undefined message', function () {
+      assume(function () {
+        raft.message(undefined, raft.packet('foo'));
+      }).throws('Cannot send message to `undefined`');
+    });
   });
 
   describe('#timeout', function () {

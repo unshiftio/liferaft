@@ -533,6 +533,13 @@ Raft.prototype.heartbeat = function heartbeat(duration) {
 Raft.prototype.message = function message(who, what, when) {
   when = when || nope;
 
+  //
+  // If the "who" is undefined, the developer made an error somewhere. Tell them!
+  //
+  if (typeof who === 'undefined') {
+    throw new Error('Cannot send message to `undefined`. Check your spelling!');
+  }
+
   var length = this.nodes.length
     , latency = []
     , raft = this
