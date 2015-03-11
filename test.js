@@ -225,6 +225,32 @@ describe('liferaft', function () {
         raft.message(undefined, raft.packet('foo'));
       }).throws('Cannot send message to `undefined`');
     });
+
+    it('runs the `when` callback with no errors', function (next) {
+      var node = raft.join(function (data, callback) {
+        callback(null, 'foo');
+      });
+      node.address = 'addr';
+
+      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
+        assume(err).equals(null);
+        assume(data).deep.equals({ addr: 'foo' });
+        next();
+      });
+    });
+
+    it('runs the `when` callback with no errors', function (next) {
+      var node = raft.join(function (data, callback) {
+        callback('bar');
+      });
+      node.address = 'addr';
+
+      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
+        assume(err).deep.equals({ addr: 'bar' });
+        assume(data).deep.equals({});
+        next();
+      });
+    });
   });
 
   describe('#timeout', function () {
