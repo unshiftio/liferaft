@@ -611,6 +611,7 @@ Raft.prototype.message = function message(who, what, when) {
         raft.timing(latency);
         when(errors ? output.errors : undefined, output.results);
         latency.length = nodes.length = 0;
+        output = null;
       }
     });
   }
