@@ -1027,4 +1027,17 @@ describe('liferaft', function () {
       });
     });
   });
+  describe('bugs', function () {
+    it('correctly deletes nodes from the list on leave', function () {
+      raft.join('1');
+      raft.join('2');
+      raft.join('3');
+
+      assume(raft.nodes.length).equals(3);
+
+      raft.leave('2');
+
+      assume(raft.nodes.length).equals(2);
+    });
+  });
 });
