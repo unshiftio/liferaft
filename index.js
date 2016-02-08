@@ -834,9 +834,9 @@ Raft.prototype.leave = function leave(address) {
   }
 
   if (~index && node) {
-    if (node.end) node.end();
-
     raft.nodes.splice(index, 1);
+
+    if (node.end) node.end();
     raft.emit('leave', node);
   }
 
