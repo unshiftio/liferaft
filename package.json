@@ -27,19 +27,19 @@
   "homepage": "https://github.com/unshiftio/liferaft",
   "dependencies": {
     "emits": "3.0.x",
-    "eventemitter3": "1.1.x",
+    "eventemitter3": "~2.0.2",
     "extendible": "0.1.x",
     "immediate": "3.2.x",
-    "millisecond": "0.0.x",
+    "millisecond": "~0.1.2",
     "modification": "1.0.x",
     "one-time": "0.0.x",
-    "tick-tock": "0.1.x"
+    "tick-tock": "~1.0.0"
   },
   "devDependencies": {
-    "assume": "1.2.x",
-    "diagnostics": "0.0.x",
-    "istanbul": "0.3.x",
-    "mocha": "2.2.x",
-    "pre-commit": "1.0.x"
+    "assume": "~1.4.1",
+    "diagnostics": "~1.0.1",
+    "istanbul": "~0.4.5",
+    "mocha": "~3.1.2",
+    "pre-commit": "~1.1.3"
   }
 }
