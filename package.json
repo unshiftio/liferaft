@@ -36,10 +36,10 @@
     "tick-tock": "0.1.x"
   },
   "devDependencies": {
-    "assume": "1.2.x",
+    "assume": "1.5.x",
     "diagnostics": "0.0.x",
     "istanbul": "0.3.x",
     "mocha": "2.2.x",
-    "pre-commit": "1.0.x"
+    "pre-commit": "1.2.x"
   }
 }
