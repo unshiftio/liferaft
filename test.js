@@ -26,6 +26,7 @@ describe('liferaft', function () {
   describe('initialization', function () {
     it('accepts strings for election and heartbeat', function () {
       raft.end();
+
       raft = new Raft({
         'election min': '100 ms',
         'election max': '150 ms',
@@ -37,6 +38,7 @@ describe('liferaft', function () {
       assume(raft.election.min).equals(100);
 
       raft.end();
+
       raft = new Raft({
         'election min': 100,
         'election max': 150,
@@ -57,6 +59,7 @@ describe('liferaft', function () {
 
     it('can set a custom address', function () {
       raft.end();
+
       raft = new Raft({ address: 'foo' });
 
       assume(raft.address).equals('foo');
@@ -85,6 +88,8 @@ describe('liferaft', function () {
     });
 
     it('async emits the initialize event once the initialize method is done', function (next) {
+      raft.end();
+
       var ready = false;
 
       class MyRaft extends Raft {
@@ -99,7 +104,7 @@ describe('liferaft', function () {
         }
       }
 
-      var raft = new MyRaft('foobar', { custom: 'options' });
+      raft = new MyRaft('foobar', { custom: 'options' });
 
       raft.on('initialize', function () {
         assume(ready).is.true();
@@ -109,6 +114,8 @@ describe('liferaft', function () {
     });
 
     it('emits error when the initialize fails', function (next) {
+      raft.end();
+
       class MyRaft extends Raft {
         initialize(options, init) {
           setTimeout(function () {
@@ -117,7 +124,7 @@ describe('liferaft', function () {
         }
       }
 
-      var raft = new MyRaft();
+      raft = new MyRaft();
 
       raft.on('error', function (err) {
         assume(err.message).equals('Failure');
@@ -333,6 +340,15 @@ describe('liferaft', function () {
       raft.end();
       raft.end();
     });
+
+    it('emits an state stopped change', function (next) {
+      raft.on('state change', function () {
+        assume(raft.state).equals(Raft.STOPPED);
+        next();
+      });
+
+      raft.end();
+    });
   });
 
   describe('#change', function () {
@@ -388,6 +404,11 @@ describe('liferaft', function () {
         state: raft.state,
         leader: raft.leader
       });
+
+      raft
+        .removeListener('leader change', heded)
+        .removeListener('state change', heded)
+        .removeListener('term change', heded)
     });
   });
 
@@ -521,6 +542,7 @@ describe('liferaft', function () {
       var x = raft.clone();
 
       assume(x).is.instanceOf(Raft);
+      x.end();
     });
 
     it('returns instance of a custom instance', function () {
@@ -530,11 +552,13 @@ describe('liferaft', function () {
         write() {}
       }
 
-      var draft = new Draft();
+      var draft = new Draft()
+        , clone = draft.clone();
 
-      assume(draft.clone()).is.instanceOf(Draft);
-      assume(draft.clone()).is.instanceOf(Raft);
+      assume(clone).is.instanceOf(Draft);
+      assume(clone).is.instanceOf(Raft);
 
+      clone.end();
       draft.end();
     });
 
@@ -744,6 +768,12 @@ describe('liferaft', function () {
 
       it('should emit a `stopped` event', function (next) {
         raft.once('stopped', function () {
+          //
+          // resetting the state to something else than stopped so that we can
+          // actually end the instance as normally this event is not emitted
+          // manually.
+          //
+          raft.change({ state: Raft.FOLLOWER });
           next();
         });
 
@@ -974,7 +1004,7 @@ describe('liferaft', function () {
       }
     }
 
-    it('reaches consensus about leader election', function (next) {
+    it.skip('reaches consensus about leader election', function (next) {
       var ports = [port++, port++, port++, port++]
         , nodes = []
         , node

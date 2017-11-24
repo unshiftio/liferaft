@@ -827,7 +827,7 @@ export default class Raft extends EventEmitter {
     var raft = this;
 
     if (Raft.STOPPED === raft.state) return false;
-    raft.state = Raft.STOPPED;
+    raft.change({ state: Raft.STOPPED });
 
     if (raft.nodes.length) for (var i = 0; i < raft.nodes.length; i++) {
       raft.leave(raft.nodes[i]);
