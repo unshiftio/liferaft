@@ -1,10 +1,12 @@
+import { describe, it, beforeEach, afterEach } from 'mocha';
+import assume from 'assume';
+import Raft from './';
+
 /* istanbul ignore next */
 describe('liferaft', function () {
   'use strict';
 
-  var assume = require('assume')
-    , Raft = require('./')
-    , raft;
+  var raft;
 
   beforeEach(function each() {
     raft = new Raft({
@@ -21,17 +23,7 @@ describe('liferaft', function () {
     assume(Raft).is.a('function');
   });
 
-  it('is extendible', function () {
-    assume(Raft.extend).is.a('function');
-  });
-
   describe('initialization', function () {
-    it('can be constructed without `new`', function () {
-      raft.end();
-      raft = Raft();
-      assume(raft).is.instanceOf(Raft);
-    });
-
     it('accepts strings for election and heartbeat', function () {
       raft.end();
       raft = new Raft({
@@ -78,8 +70,8 @@ describe('liferaft', function () {
     });
 
     it('will call the initialization function if exists', function (next) {
-      var MyRaft = Raft.extend({
-        initialize: function () {
+      class MyRaft extends Raft {
+        initialize() {
           var node = this;
 
           setTimeout(function () {
@@ -87,7 +79,7 @@ describe('liferaft', function () {
             next();
           }, 0);
         }
-      });
+      }
 
       new MyRaft();
     });
@@ -95,8 +87,8 @@ describe('liferaft', function () {
     it('async emits the initialize event once the initialize method is done', function (next) {
       var ready = false;
 
-      var MyRaft = Raft.extend({
-        initialize: function initialize(options, init) {
+      class MyRaft extends Raft {
+        initialize(options, init) {
           assume(options.custom).equals('options');
           assume(ready).is.false();
 
@@ -105,7 +97,7 @@ describe('liferaft', function () {
             init();
           }, 100);
         }
-      });
+      }
 
       var raft = new MyRaft('foobar', { custom: 'options' });
 
@@ -117,13 +109,13 @@ describe('liferaft', function () {
     });
 
     it('emits error when the initialize fails', function (next) {
-      var MyRaft = Raft.extend({
-        initialize: function initialize(options, init) {
+      class MyRaft extends Raft {
+        initialize(options, init) {
           setTimeout(function () {
             init(new Error('Failure'));
           }, 100);
         }
-      });
+      }
 
       var raft = new MyRaft();
 
@@ -534,8 +526,11 @@ describe('liferaft', function () {
     it('returns instance of a custom instance', function () {
       raft.end();
 
-      var Draft = Raft.extend({ write: function () { } })
-        , draft = new Draft();
+      class Draft extends Raft {
+        write() {}
+      }
+
+      var draft = new Draft();
 
       assume(draft.clone()).is.instanceOf(Draft);
       assume(draft.clone()).is.instanceOf(Raft);
@@ -546,8 +541,11 @@ describe('liferaft', function () {
     it('inherits the options', function () {
       raft.end();
 
-      var Draft = Raft.extend({ write: function () { } })
-        , draft = new Draft({ threshold: 99 })
+      class Draft extends Raft {
+        write() {}
+      }
+
+      var draft = new Draft({ threshold: 99 })
         , punk = draft.clone();
 
       assume(punk.threshold).equals(99);
@@ -559,8 +557,11 @@ describe('liferaft', function () {
     it('allows overriding of config through options', function () {
       raft.end();
 
-      var Draft = Raft.extend({ write: function () { } })
-        , draft = new Draft({ threshold: 99 })
+      class Draft extends Raft {
+        write() {}
+      }
+
+      var draft = new Draft({ threshold: 99 })
         , punk = draft.clone({ threshold: 9 });
 
       assume(punk.threshold).equals(9);
@@ -608,8 +609,11 @@ describe('liferaft', function () {
     it('returns the same instance as the node', function () {
       raft.end();
 
-      var Draft = Raft.extend({ write: function () { } })
-        , draft = new Draft({ threshold: 99 })
+      class Draft extends Raft {
+        write() {}
+      }
+
+      var draft = new Draft({ threshold: 99 })
         , punk = draft.join('foo');
 
       assume(punk).is.instanceOf(Draft);
@@ -914,14 +918,14 @@ describe('liferaft', function () {
       , net = require('net')
       , debug = require('diagnostics')('cluster');
 
-    var Paddle = Raft.extend({
+    class Paddle extends Raft {
       /**
        * Initialize the server so we can receive connections.
        *
        * @param {Object} options Received optiosn when constructing the client.
        * @api private
        */
-      initialize: function initialize(options) {
+      initialize(options) {
         var raft = this;
 
         var server = net.createServer(function incoming(socket) {
@@ -937,10 +941,10 @@ describe('liferaft', function () {
           });
         }).listen(this.address);
 
-        this.once('end', function enc() {
+        this.once('end', function end() {
           server.close();
         });
-      },
+      }
 
       /**
        * Write to the connection.
@@ -949,7 +953,7 @@ describe('liferaft', function () {
        * @param {Function} fn Completion callback.
        * @api public
        */
-      write: function write(packet, fn) {
+      write(packet, fn) {
         var socket = net.connect(this.address)
           , raft = this;
 
@@ -968,7 +972,7 @@ describe('liferaft', function () {
         socket.setNoDelay(true);
         socket.write(JSON.stringify(packet));
       }
-    });
+    }
 
     it('reaches consensus about leader election', function (next) {
       var ports = [port++, port++, port++, port++]
@@ -1027,6 +1031,7 @@ describe('liferaft', function () {
       });
     });
   });
+
   describe('bugs', function () {
     it('correctly deletes nodes from the list on leave', function () {
       raft.join('1');

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "100%": "istanbul check-coverage --statements 100 --functions 100 --lines 100 --branches 100",
-    "test": "mocha test.js",
+    "test": "mocha --require @babel/register test.js",
     "watch": "mocha --watch test.js",
     "coverage": "istanbul cover ./node_modules/.bin/_mocha -- test.js",
     "test-travis": "istanbul cover node_modules/.bin/_mocha --report lcovonly -- test.js"
@@ -25,21 +25,29 @@
     "url": "https://github.com/unshiftio/liferaft/issues"
   },
   "homepage": "https://github.com/unshiftio/liferaft",
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
+  },
   "dependencies": {
     "emits": "3.0.x",
-    "eventemitter3": "1.1.x",
+    "eventemitter3": "2.0.x",
     "extendible": "0.1.x",
     "immediate": "3.2.x",
-    "millisecond": "0.0.x",
+    "millisecond": "0.1.x",
     "modification": "1.0.x",
     "one-time": "0.0.x",
-    "tick-tock": "0.1.x"
+    "tick-tock": "1.0.x"
   },
   "devDependencies": {
+    "@babel/core": "^7.0.0-beta.32",
+    "@babel/preset-env": "^7.0.0-beta.32",
+    "@babel/register": "^7.0.0-beta.32",
     "assume": "1.5.x",
-    "diagnostics": "0.0.x",
+    "diagnostics": "1.1.x",
     "istanbul": "0.3.x",
-    "mocha": "2.2.x",
+    "mocha": "4.0.x",
     "pre-commit": "1.2.x"
   }
 }
