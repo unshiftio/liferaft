@@ -1,6 +1,4 @@
-'use strict';
-
-var debug = require('diagnostics')('raft')
+const debug = require('diagnostics')('raft')
   , argv = require('argh').argv
   , LifeRaft = require('../')
   , net = require('net');
@@ -9,14 +7,7 @@ var debug = require('diagnostics')('raft')
 // Create a custom Raft instance which uses a plain TCP server and client to
 // communicate back and forth.
 //
-var TCPRaft = LifeRaft.extend({
-  /**
-   * Reference our socket.
-   *
-   * @type {Msg}
-   * @private
-   */
-  socket: null,
+class TCPRaft extends LifeRaft {
 
   /**
    * Initialized, start connecting all the things.
@@ -24,16 +15,16 @@ var TCPRaft = LifeRaft.extend({
    * @param {Object} options Options.
    * @api private
    */
-  initialize: function initialize(options) {
-    var raft = this;
+  initialize (options) {
+    // var raft = this;
 
-    var server = net.createServer(function incoming(socket) {
-      socket.on('data', function (buff) {
+    const server = net.createServer((socket) => {
+      socket.on('data', buff => {
         var data = JSON.parse(buff.toString());
 
-        debug(raft.address +':packet#data', data);
-        raft.emit('data', data, function reply(data) {
-          debug(raft.address +':packet#reply', data);
+        debug(this.address +':packet#data', data);
+        this.emit('data', data, data => {
+          debug(this.address +':packet#reply', data);
           socket.write(JSON.stringify(data));
           socket.end();
         });
@@ -43,7 +34,7 @@ var TCPRaft = LifeRaft.extend({
     this.once('end', function enc() {
       server.close();
     });
-  },
+  }
 
   /**
    * The message to write.
@@ -53,33 +44,32 @@ var TCPRaft = LifeRaft.extend({
    * @param {Function} fn Completion callback.
    * @api private
    */
-  write: function write(packet, fn) {
-    var socket = net.connect(this.address)
-      , raft = this;
+  write (packet, fn) {
+    const socket = net.connect(this.address);
 
-    debug(raft.address +':packet#write', packet);
+    debug(this.address +':packet#write', packet);
     socket.on('error', fn);
-    socket.on('data', function (buff) {
-      var data;
+    socket.on('data', buff => {
+      let data;
 
       try { data = JSON.parse(buff.toString()); }
       catch (e) { return fn(e); }
 
-      debug(raft.address +':packet#callback', packet);
+      debug(this.address +':packet#callback', packet);
       fn(undefined, data);
     });
 
     socket.setNoDelay(true);
     socket.write(JSON.stringify(packet));
   }
-});
+}
 
 //
 // We're going to start with a static list of servers. A minimum cluster size is
 // 4 as that only requires majority of 3 servers to have a new leader to be
 // assigned. This allows the failure of one single server.
 //
-var ports = [
+const ports = [
   8081, 8082,
   8083, 8084,
   8085, 8086
@@ -88,23 +78,23 @@ var ports = [
 //
 // The port number of this Node process.
 //
-var port = +argv.port || ports[0];
+const port = +argv.port || ports[0];
 
 //
 // Now that we have all our variables we can safely start up our server with our
 // assigned port number.
 //
-var raft = new TCPRaft(port, {
+const raft = new TCPRaft(port, {
   'election min': 2000,
   'election max': 5000,
   'heartbeat': 1000
 });
 
-raft.on('heartbeat timeout', function () {
+raft.on('heartbeat timeout', () => {
   debug('heart beat timeout, starting election');
 });
 
-raft.on('term change', function (to, from) {
+raft.on('term change', (to, from) => {
   debug('were now running on term %s -- was %s', to, from);
 }).on('leader change', function (to, from) {
   debug('we have a new leader to: %s -- was %s', to, from);
@@ -112,13 +102,13 @@ raft.on('term change', function (to, from) {
   debug('we have a state to: %s -- was %s', to, from);
 });
 
-raft.on('leader', function () {
+raft.on('leader', () => {
   console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
   console.log('I am elected as leader');
   console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@');
 });
 
-raft.on('candidate', function () {
+raft.on('candidate', () => {
   console.log('----------------------------------');
   console.log('I am starting as candidate');
   console.log('----------------------------------');
@@ -127,7 +117,7 @@ raft.on('candidate', function () {
 //
 // Join in other nodes so they start searching for each other.
 //
-ports.forEach(function join(nr) {
+ports.forEach(nr => {
   if (!nr || port === nr) return;
 
   raft.join(nr);
