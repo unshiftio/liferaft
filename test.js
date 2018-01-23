@@ -1,6 +1,5 @@
-import { describe, it, beforeEach, afterEach } from 'mocha';
-import assume from 'assume';
-import Raft from './';
+const assume = require('assume');
+const Raft = require('./');
 
 /* istanbul ignore next */
 describe('liferaft', function () {
@@ -51,7 +50,7 @@ describe('liferaft', function () {
     });
 
     it('sets a unique address by default', function () {
-      var another = new Raft();
+      const another = new Raft();
 
       assume(raft.address).does.not.equal(another.address);
       another.end();

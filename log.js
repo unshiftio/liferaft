@@ -1,4 +1,4 @@
-import immediate from 'immediate';
+const immediate = require('immediate');
 
 /**
  * The representation of the log of a single node.
@@ -12,7 +12,7 @@ import immediate from 'immediate';
  * @param {Object} options Optional configuration.
  * @api public
  */
-export default class Log {
+class Log {
   constructor(node, options) {
     this.node = node;
     this.engine = options.engine || 'memory';
