@@ -5,7 +5,7 @@
   "main": "index.js",
   "browser": "./lib/",
   "scripts": {
-    "test": "mocha test.js",
+    "test": "mocha test/**.js",
     "test-travis": "nyc --reporter=html --reporter=text npm test",
     "prepublish": "npm run build",
     "build": "babel ./index.js -d ./lib"
@@ -27,22 +27,26 @@
   "homepage": "https://github.com/unshiftio/liferaft",
   "dependencies": {
     "emits": "3.0.x",
+    "encoding-down": "^3.0.1",
     "eventemitter3": "2.0.x",
     "extendible": "0.1.x",
     "immediate": "3.2.x",
+    "leveldown": "^3.0.0",
+    "levelup": "^2.0.1",
     "millisecond": "0.1.x",
     "modification": "1.0.x",
     "one-time": "0.0.x",
     "tick-tock": "1.0.x"
   },
   "devDependencies": {
+    "@babel/cli": "^7.0.0-beta.38",
     "@babel/core": "^7.0.0-beta.38",
     "@babel/preset-env": "^7.0.0-beta.38",
     "@babel/register": "^7.0.0-beta.38",
-    "@babel/cli": "^7.0.0-beta.38",
     "assume": "1.5.x",
     "diagnostics": "1.1.x",
-    "mocha": "4.0.x",
+    "memdown": "^1.4.1",
+    "mocha": "5.0.x",
     "nyc": "^11.3.0",
     "pre-commit": "1.2.x"
   },

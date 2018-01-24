@@ -1,11 +1,9 @@
 const assume = require('assume');
-const Raft = require('./');
+const Raft = require('../');
+const Log = require('../log');
 
-/* istanbul ignore next */
-describe('liferaft', function () {
-  'use strict';
-
-  var raft;
+describe('Raft api', () => {
+  let raft;
 
   beforeEach(function each() {
     raft = new Raft({
@@ -71,7 +69,7 @@ describe('liferaft', function () {
       assume(raft.address).equals('foo');
     });
 
-    it('will call the initialization function if exists', function (next) {
+    it('will call the initialization function if exists', (next) => {
       class MyRaft extends Raft {
         initialize() {
           var node = this;
@@ -86,7 +84,7 @@ describe('liferaft', function () {
       new MyRaft();
     });
 
-    it('async emits the initialize event once the initialize method is done', function (next) {
+    it('async emits the initialize event once the initialize method is done', (next) => {
       raft.end();
 
       var ready = false;
@@ -112,7 +110,7 @@ describe('liferaft', function () {
       });
     });
 
-    it('emits error when the initialize fails', function (next) {
+    it('emits error when the initialize fails', (next) => {
       raft.end();
 
       class MyRaft extends Raft {
@@ -134,7 +132,7 @@ describe('liferaft', function () {
   });
 
   describe('#indefinitely', function () {
-    it('it runs until the supplied callback is called', function (next) {
+    it('it runs until the supplied callback is called', (next) => {
       var attempts = 0;
 
       raft.indefinitely(function attempt(done) {
@@ -144,7 +142,7 @@ describe('liferaft', function () {
       }, next, 10);
     });
 
-    it('it runs until the supplied callback is called without err', function (next) {
+    it('it runs until the supplied callback is called without err', (next) => {
       var attempts = 0;
 
       raft.indefinitely(function attempt(done) {
@@ -157,7 +155,7 @@ describe('liferaft', function () {
   });
 
   describe('#message', function () {
-    it('calls all joined nodes', function (next) {
+    it('calls all joined nodes', (next) => {
       var pattern = '';
 
       raft.join(function () { pattern += 'a'; });
@@ -172,12 +170,12 @@ describe('liferaft', function () {
       }, 20);
     });
 
-    it('emits the `data` event with response', function (next) {
-      var node = raft.join(function (data, fn) {
-        fn(undefined, node.packet('external'));
+    it('emits the `data` event with response', (next) => {
+      const node = raft.join(async (data, fn) => {
+        fn(undefined, await node.packet('external'));
       });
 
-      raft.on('rpc', function (packet) {
+      raft.on('rpc', (packet) => {
         assume(packet.type).equals('external');
         assume(packet.address).equals(node.address);
         assume(raft.address).does.not.equal(node.address);
@@ -185,11 +183,14 @@ describe('liferaft', function () {
         next();
       });
 
-      raft.message(Raft.FOLLOWER, raft.packet('foo'));
+      raft.packet('foo')
+      .then(packet => {
+        raft.message(Raft.FOLLOWER, packet);
+      });
     });
 
-    it('sends message to cluster leader', function (next) {
-      var leader = raft.join(function (packet) {
+    it('sends message to cluster leader', (next) => {
+      const leader = raft.join(function (packet) {
         assume(packet.leader).equals(this.address);
         assume(packet.type).equals('leader');
 
@@ -201,10 +202,13 @@ describe('liferaft', function () {
       raft.join(function () { throw new Error('We are followers, not leader'); });
 
       raft.change({ leader: leader.address });
-      raft.message(Raft.LEADER, raft.packet('leader'));
+      raft.packet('leader')
+      .then(packet => {
+        raft.message(Raft.LEADER, packet);
+      });
     });
 
-    it('sends a node specified by address', function (next) {
+    it('sends a node specified by address', (next) => {
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
 
       var node = raft.join(function (packet) {
@@ -215,38 +219,48 @@ describe('liferaft', function () {
 
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
       raft.join(function () { throw new Error('You sir, msg the wrong node'); });
-      raft.message(node.address, raft.packet('address'));
+
+      raft.packet('address')
+      .then(packet => {
+        raft.message(node.address, packet);
+      });
     });
 
-    it('throws an error on undefined message', function () {
-      assume(function () {
-        raft.message(undefined, raft.packet('foo'));
+    it('throws an error on undefined message', () => {
+      assume(() => {
+        raft.message(undefined, {});
       }).throws('Cannot send message to `undefined`');
     });
 
-    it('runs the `when` callback with no errors', function (next) {
+    it('runs the `when` callback with no errors', (next) => {
       var node = raft.join(function (data, callback) {
         callback(undefined, 'foo');
       });
       node.address = 'addr';
 
-      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
-        assume(err).equals(undefined);
-        assume(data).deep.equals({ addr: 'foo' });
-        next();
+      raft.packet('foo')
+      .then(packet => {
+        raft.message(Raft.FOLLOWER, packet, function (err, data) {
+          assume(err).equals(undefined);
+          assume(data).deep.equals({ addr: 'foo' });
+          next();
+        });
       });
     });
 
-    it('runs the `when` callback with no errors', function (next) {
+    it('runs the `when` callback with no errors', (next) => {
       var node = raft.join(function (data, callback) {
         callback('bar');
       });
       node.address = 'addr';
 
-      raft.message(Raft.FOLLOWER, raft.packet('foo'), function (err, data) {
-        assume(err).deep.equals({ addr: 'bar' });
-        assume(data).deep.equals({});
-        next();
+      raft.packet('foo')
+      .then(packet => {
+        raft.message(Raft.FOLLOWER, packet, function (err, data) {
+          assume(err).deep.equals({ addr: 'bar' });
+          assume(data).deep.equals({});
+          next();
+        });
       });
     });
   });
@@ -329,7 +343,7 @@ describe('liferaft', function () {
       assume(listeners(raft)).equals(0);
     });
 
-    it('emits an end event', function (next) {
+    it('emits an end event', (next) => {
       raft.on('end', next);
 
       //
@@ -340,7 +354,7 @@ describe('liferaft', function () {
       raft.end();
     });
 
-    it('emits an state stopped change', function (next) {
+    it('emits an state stopped change', (next) => {
       raft.on('state change', function () {
         assume(raft.state).equals(Raft.STOPPED);
         next();
@@ -351,7 +365,7 @@ describe('liferaft', function () {
   });
 
   describe('#change', function () {
-    it('updates the term and emits a change', function (next) {
+    it('updates the term and emits a change', (next) => {
       raft.once('term change', function (currently, previously) {
         assume(currently).equals(raft.term);
         assume(previously).equals(0);
@@ -363,7 +377,7 @@ describe('liferaft', function () {
       raft.change({ term: 3 });
     });
 
-    it('updates the leader and emits a change', function (next) {
+    it('updates the leader and emits a change', (next) => {
       raft.once('leader change', function (currently, previously) {
         assume(currently).equals(raft.leader);
         assume(raft.leader).equals('foo');
@@ -375,7 +389,7 @@ describe('liferaft', function () {
       raft.change({ leader: 'foo' });
     });
 
-    it('updates the state and emits a change', function (next) {
+    it('updates the state and emits a change', (next) => {
       raft.once('state change', function (currently, previously) {
         assume(previously).equals(Raft.FOLLOWER);
         assume(raft.state).equals(Raft.LEADER);
@@ -412,7 +426,7 @@ describe('liferaft', function () {
   });
 
   describe('heartbeat', function () {
-    it('increments the heartbeat if set before', function (next) {
+    it('increments the heartbeat if set before', (next) => {
       raft.end();
       raft = new Raft({ 'heartbeat min': 100, 'heartbeat max': 110 });
 
@@ -424,7 +438,7 @@ describe('liferaft', function () {
       }, 90);
     });
 
-    it('emits a heartbeat timeout', function (next) {
+    it('emits a heartbeat timeout', (next) => {
       raft.end();
       raft = new Raft({ 'heartbeat min': 10, 'heartbeat max': 40 });
 
@@ -432,7 +446,7 @@ describe('liferaft', function () {
       raft.heartbeat();
     });
 
-    it('promotes to candidate', function (next) {
+    it('promotes to candidate', (next) => {
       raft.end();
       raft = new Raft({ 'heartbeat min': 10, 'heartbeat max': 40 });
 
@@ -483,8 +497,8 @@ describe('liferaft', function () {
   });
 
   describe('#packet', function () {
-    it('wraps the object with common but required data', function () {
-      var obj = raft.packet('vote', 'data packet');
+    it('wraps the object with common but required data', async () => {
+      var obj = await raft.packet('vote', 'data packet');
 
       assume(obj).is.a('object');
 
@@ -617,7 +631,7 @@ describe('liferaft', function () {
       assume(raft.nodes.length).equals(0);
     });
 
-    it('emits an `join` event when a new ode is added', function (next) {
+    it('emits an `join` event when a new ode is added', (next) => {
       raft.once('join', function (node) {
         assume(raft.nodes.length).equal(1);
         assume(node).is.instanceOf(Raft);
@@ -657,7 +671,7 @@ describe('liferaft', function () {
       node.end();
     });
 
-    it('will leave the cluster when ended', function (next) {
+    it('will leave the cluster when ended', (next) => {
       var node = raft.join();
 
       raft.once('leave', function (left) {
@@ -673,7 +687,7 @@ describe('liferaft', function () {
 
   describe('event', function () {
     describe('term change', function () {
-      it('resets the votes', function (next) {
+      it('resets the votes', (next) => {
         raft.on('term change', function () {
           assume(raft.term).equals(2);
           assume(raft.votes.granted).equals(0);
@@ -690,7 +704,7 @@ describe('liferaft', function () {
     });
 
     describe('data', function () {
-      it('calls the callback for unknown messages', function (next) {
+      it('calls the callback for unknown messages', (next) => {
         raft.emit('data', { type: 'bar' }, function (err) {
           assume(err).is.not.instanceOf(Error);
           assume(err).is.a('object');
@@ -700,7 +714,7 @@ describe('liferaft', function () {
         });
       });
 
-      it('calls with an error when invalid data is send', function (next) {
+      it('calls with an error when invalid data is send', (next) => {
         raft.emit('data', 1, function (err) {
           assume(err).is.not.instanceOf(Error);
           assume(err).is.a('object');
@@ -711,7 +725,7 @@ describe('liferaft', function () {
         });
       });
 
-      it('updates to FOLLOWER as CANDIDATE when msg by LEADER', function (next) {
+      it('updates to FOLLOWER as CANDIDATE when msg by LEADER', (next) => {
         raft.promote();
 
         raft.once('state change', function () {
@@ -725,7 +739,7 @@ describe('liferaft', function () {
         });
       });
 
-      it('automatically update term when ours is out of date', function (next) {
+      it('automatically update term when ours is out of date', (next) => {
         raft.change({ term : 40 });
         raft.once('term change', function () {
           assume(this.term).equals(41);
@@ -740,7 +754,7 @@ describe('liferaft', function () {
     });
 
     describe('state events', function () {
-      it('should emit a `leader` event', function (next) {
+      it('should emit a `leader` event', (next) => {
         raft.once('leader', function () {
           next();
         });
@@ -748,7 +762,7 @@ describe('liferaft', function () {
         raft.change({ state: Raft.LEADER });
       });
 
-      it('should emit a `follower` event', function (next) {
+      it('should emit a `follower` event', (next) => {
         raft.once('follower', function () {
           next();
         });
@@ -757,7 +771,7 @@ describe('liferaft', function () {
         raft.change({ state: Raft.FOLLOWER });
       });
 
-      it('should emit a `candidate` event', function (next) {
+      it('should emit a `candidate` event', (next) => {
         raft.once('candidate', function () {
           next();
         });
@@ -765,7 +779,7 @@ describe('liferaft', function () {
         raft.change({ state: Raft.CANDIDATE });
       });
 
-      it('should emit a `stopped` event', function (next) {
+      it('should emit a `stopped` event', (next) => {
         raft.once('stopped', function () {
           //
           // resetting the state to something else than stopped so that we can
@@ -779,7 +793,7 @@ describe('liferaft', function () {
         raft.change({ state: Raft.STOPPED });
       });
 
-      it('should emit a `child` event', function (next) {
+      it('should emit a `child` event', (next) => {
         raft.once('child', function () {
           next();
         });
@@ -789,18 +803,22 @@ describe('liferaft', function () {
     });
 
     describe('rpc', function () {
-      it('should emit an rpc event when an unknown package arrives', function (next) {
+      it('should emit an rpc event when an unknown package arrives', (next) => {
         raft.once('rpc', function (packet) {
           assume(packet.type).equals('shizzle');
           next();
         });
 
-        raft.emit('data', raft.packet('shizzle'));
+        raft.packet('shizzle')
+        .then(packet => {
+          raft.emit('data',  packet);
+        });
+
       });
     });
 
     describe('heartbeat', function () {
-      it('emits a heartbeat event when we are a leader', function (next) {
+      it('emits a heartbeat event when we are a leader', (next) => {
         raft.once('heartbeat', function (packet) {
           assume(packet.type).equals('append');
           next();
@@ -808,255 +826,6 @@ describe('liferaft', function () {
 
         raft.change({ state: Raft.LEADER });
         raft.heartbeat();
-      });
-    });
-  });
-
-  //
-  // The following set of tests asserts if we correctly follow the Raft white
-  // paper and that our module does what is expected of it.
-  //
-  describe('Raft Consensus Algorithm', function () {
-    describe('election', function () {
-      describe('vote', function () {
-        it('ignores stale votes when term is out of date', function () {
-          raft.once('vote', function (packet, accepted) {
-            throw new Error('Broken');
-          });
-
-          raft.change({ term: 139 });
-          raft.emit('data', {
-            address: 'vladimir',
-            type: 'vote',
-            term: 138
-          });
-        });
-
-        it('votes on first come first serve basis', function (next) {
-          raft.once('vote', function (packet, accepted) {
-            assume(accepted).is.true();
-
-            raft.once('vote', function (packet, accepted) {
-              assume(accepted).is.false();
-              next();
-            });
-          });
-
-          raft.change({ term: 139 });
-          raft.emit('data', { address: 'vladimir', term: raft.term, type: 'vote' });
-          raft.emit('data', { address: 'anatoly', term: raft.term, type: 'vote' });
-        });
-      });
-
-      describe('voted', function () {
-        it('only increments votes when being a CANDIDATE', function () {
-          assume(raft.votes.granted).equals(0);
-          assume(raft.state).equals(Raft.FOLLOWER);
-
-          raft.emit('data', {
-            data: { granted: true },
-            term: raft.term,
-            state: Raft.FOLLOWER,
-            address: 'foobar',
-            type: 'voted'
-          });
-
-          assume(raft.votes.granted).equals(0);
-
-          //
-          // Promote our selfs to candidate.
-          //
-          raft.promote();
-          assume(raft.state).equals(Raft.CANDIDATE);
-          assume(raft.votes.granted).equals(1);
-
-          raft.emit('data', {
-            data: { granted: true },
-            term: raft.term,
-            state: Raft.FOLLOWER,
-            address: 'foobar',
-            type: 'voted'
-          });
-
-          assume(raft.votes.granted).equals(2);
-          assume(raft.state).equals(Raft.CANDIDATE);
-        });
-
-        it('only accepts granted votes', function () {
-          raft.promote();
-          assume(raft.state).equals(Raft.CANDIDATE);
-          assume(raft.votes.granted).equals(1);
-
-          raft.emit('data', {
-            data: { granted: false },
-            term: raft.term,
-            state: Raft.FOLLOWER,
-            address: 'foobar',
-            type: 'voted'
-          });
-
-          assume(raft.votes.granted).equals(1);
-          assume(raft.state).equals(Raft.CANDIDATE);
-        });
-
-        it('changes to leader when majority has voted', function (next) {
-          //
-          // Feed raft some "nodes" so it can actually reach a consensus when it
-          // received a majority of the votes.
-          //
-          raft.nodes.push(
-            { write: function () {} },
-            { write: function () {} },
-            { write: function () {} },
-            { write: function () {} },
-            { write: function () {} }
-          );
-
-          raft.promote();
-
-          raft.once('state change', function (currently, previously) {
-            assume(previously).equals(Raft.CANDIDATE);
-            assume(raft.state).equals(Raft.LEADER);
-            assume(currently).equals(Raft.LEADER);
-
-            next();
-          });
-
-          for (var i = 0; i < 4; i++) {
-            raft.emit('data', {
-              data: { granted: true },
-              term: raft.term,
-              state: Raft.FOLLOWER,
-              address: 'foobar',
-              type: 'voted'
-            });
-          }
-
-          assume(raft.state).equals(Raft.LEADER);
-        });
-      });
-    });
-  });
-
-  //
-  // Batch of tests which tests the clustering capabilities of liferaft as
-  // everything works different when you start working with massive clusters.
-  //
-  describe('cluster', function () {
-    var port = 8088
-      , net = require('net')
-      , debug = require('diagnostics')('cluster');
-
-    class Paddle extends Raft {
-      /**
-       * Initialize the server so we can receive connections.
-       *
-       * @param {Object} options Received optiosn when constructing the client.
-       * @api private
-       */
-      initialize(options) {
-        var raft = this;
-
-        var server = net.createServer(function incoming(socket) {
-          socket.on('data', function (buff) {
-            var data = JSON.parse(buff.toString());
-
-            debug(raft.address +':packet#data', data);
-            raft.emit('data', data, function reply(data) {
-              debug(raft.address +':packet#reply', data);
-              socket.write(JSON.stringify(data));
-              socket.end();
-            });
-          });
-        }).listen(this.address);
-
-        this.once('end', function end() {
-          server.close();
-        });
-      }
-
-      /**
-       * Write to the connection.
-       *
-       * @param {Object} packet Data to be transfered.
-       * @param {Function} fn Completion callback.
-       * @api public
-       */
-      write(packet, fn) {
-        var socket = net.connect(this.address)
-          , raft = this;
-
-        debug(raft.address +':packet#write', packet);
-        socket.on('error', fn);
-        socket.on('data', function (buff) {
-          var data;
-
-          try { data = JSON.parse(buff.toString()); }
-          catch (e) { return fn(e); }
-
-          debug(raft.address +':packet#callback', packet);
-          fn(undefined, data);
-        });
-
-        socket.setNoDelay(true);
-        socket.write(JSON.stringify(packet));
-      }
-    }
-
-    it.skip('reaches consensus about leader election', function (next) {
-      var ports = [port++, port++, port++, port++]
-        , nodes = []
-        , node
-        , i
-        , j;
-
-      for (i = 0; i < ports.length; i++) {
-        node = new Paddle(ports[i]);
-        nodes.push(node);
-
-        for (j = 0; j < ports.length; j++) {
-          if (ports[j] === ports[i]) continue;
-
-          node.join(ports[j]);
-        }
-      }
-
-      for (i = 0; i < nodes.length; i++) {
-        if (nodes[i] === node) continue;
-
-        nodes[i].once('state change', function (to, from) {
-          throw new Error('I should not change state, im a follower');
-        });
-
-        nodes[i].on('leader change', function (to, from) {
-          assume(to).equals(node.address);
-        });
-      }
-
-      //
-      // Force a node in to a candidate role to ensure that this node will be
-      // promoted as leader as it's the first to be alive.
-      //
-      node.promote();
-      node.once('state change', function changed(state) {
-        assume(state).equals(Paddle.LEADER);
-
-        //
-        // Check if every node is in sync
-        //
-        for (i = 0; i < nodes.length; i++) {
-          if (node === nodes[i]) continue;
-
-          assume(nodes[i].leader).equals(node.address);
-          assume(nodes[i].state).equals(Raft.FOLLOWER);
-          assume(nodes[i].term).equals(node.term);
-        }
-
-        for (i = 0; i < ports.length; i++) {
-          nodes[i].end();
-        }
-
-        next();
       });
     });
   });

@@ -141,7 +141,7 @@ class Raft extends EventEmitter {
     //
     // Receive incoming messages and process them.
     //
-    raft.on('data', function incoming(packet, write) {
+    raft.on('data', async (packet, write) => {
       write = write || nope;
       var reason;
 
@@ -149,7 +149,7 @@ class Raft extends EventEmitter {
         reason = 'Invalid packet received';
         raft.emit('error', new Error(reason));
 
-        return write(raft.packet('error', reason));
+        return write(await raft.packet('error', reason));
       }
 
       //
@@ -212,23 +212,20 @@ class Raft extends EventEmitter {
           if (raft.votes.for && raft.votes.for !== packet.address) {
             raft.emit('vote', packet, false);
 
-            return write(raft.packet('voted', { granted: false }));
+            return write(await raft.packet('voted', { granted: false }));
           }
 
           //
           // If we maintain a log, check if the candidates log is as up to date as
           // ours.
           //
-          // @TODO point to index of last commit entry.
-          // @TODO point to term of last commit entry.
-          //
-          if (raft.log && packet.last && (
-               raft.log.index > packet.last.index
-            || raft.term > packet.last.term
-          )) {
-            raft.emit('vote', packet, false);
+          if (raft.log) {
+            const {index, term} = await raft.log.getLastInfo();
+            if (index > packet.last.index && term > packet.last.term) {
+              raft.emit('vote', packet, false);
 
-            return write(raft.packet('voted', { granted: false }));
+              return write(await raft.packet('voted', { granted: false }));
+            }
           }
 
           //
@@ -239,7 +236,7 @@ class Raft extends EventEmitter {
           raft.votes.for = packet.address;
           raft.emit('vote', packet, true);
           raft.change({ leader: packet.address, term: packet.term });
-          write(raft.packet('voted', { granted: true }));
+          write(await raft.packet('voted', { granted: true }));
 
           //
           // We've accepted someone as potential new leader, so we should reset
@@ -258,7 +255,7 @@ class Raft extends EventEmitter {
           // Only accepts votes while we're still in a CANDIDATE state.
           //
           if (Raft.CANDIDATE !== raft.state) {
-            return write(raft.packet('error', 'No longer a candidate, ignoring vote'));
+            return write(await raft.packet('error', 'No longer a candidate, ignoring vote'));
           }
 
           //
@@ -279,7 +276,7 @@ class Raft extends EventEmitter {
             //
             // Send a heartbeat message to all connected clients.
             //
-            raft.message(Raft.FOLLOWER, raft.packet('append'));
+            raft.message(Raft.FOLLOWER, await raft.packet('append'));
           }
 
           //
@@ -292,17 +289,53 @@ class Raft extends EventEmitter {
           raft.emit('error', new Error(packet.data));
         break;
 
-        //
-        // Remark: Are we assuming we are getting an appendEntries from the
-        // leader and comparing and appending our log?
-        //
         case 'append':
+          const {term, index} = await raft.log.getLastInfo();
+
+          // We do not have the last index as our last entry
+          // Look back in log in case we have it previously
+          // if we do remove any bad uncommitted entries following it
+          if (packet.last.index !== index && packet.last.index !== 0) {
+            const hasIndex = await raft.log.has(packet.last.index);
+            if (hasIndex) {
+              raft.log.removeEntriesAfter(packet.last.index);
+            } else {
+              raft.message(Raft.LEADER, await raft.packet('append fail', {
+                term: packet.last.term,
+                index: packet.last.index
+              }));
+              return;
+            }
+          }
+
+          if (packet.data) {
+            const entry = packet.data[0];
+            await raft.log.saveCommand(entry.command, entry.term, entry.index);
+            raft.message(Raft.LEADER, await raft.packet('append ack', {
+              term: entry.term,
+              index: entry.index
+            }));
+          }
+
+          //if packet commit index not the same. Commit commands
+          if (raft.log.committedIndex < packet.last.committedIndex) {
+            const entries = await raft.log.getUncommittedEntriesUpToIndex(packet.last.committedIndex, packet.last.term);
+            raft.commitEntries(entries);
+          }
         break;
 
-        //
-        // Remark: So does this get emit when we need to write our OWN log?
-        //
-        case 'log':
+        case 'append ack':
+          const entry = await raft.log.commandAck(packet.data.index, packet.address);
+          if (raft.quorum(entry.responses.length) && !entry.committed) {
+            const entries = await raft.log.getUncommittedEntriesUpToIndex(entry.index, entry.term);
+            raft.commitEntries(entries);
+          }
+        break;
+
+        case 'append fail':
+          const previousEntry = await raft.log.get(packet.data.index);
+          const append = await raft.appendPacket(previousEntry);
+          write(append);
         break;
 
         //
@@ -319,7 +352,7 @@ class Raft extends EventEmitter {
           if (raft.listeners('rpc').length) {
             raft.emit('rpc', packet, write);
           } else {
-            write(raft.packet('error', 'Unknown message type: '+ packet.type));
+            write(await raft.packet('error', 'Unknown message type: '+ packet.type));
         }
       }
     });
@@ -466,7 +499,7 @@ class Raft extends EventEmitter {
       return raft;
     }
 
-    raft.timers.setTimeout('heartbeat', function heartbeattimeout() {
+    raft.timers.setTimeout('heartbeat', async () => {
       if (Raft.LEADER !== raft.state) {
         raft.emit('heartbeat timeout');
 
@@ -480,7 +513,7 @@ class Raft extends EventEmitter {
       // idle state of a LEADER as it didn't get any messages to append/commit to
       // the FOLLOWER'S.
       //
-      var packet = raft.packet('append');
+      var packet = await raft.packet('append');
 
       raft.emit('heartbeat', packet);
       raft.message(Raft.FOLLOWER, packet).heartbeat(raft.beat);
@@ -650,7 +683,7 @@ class Raft extends EventEmitter {
    * @returns {Raft}
    * @private
    */
-  promote() {
+  async promote() {
     var raft = this;
 
     raft.change({
@@ -670,10 +703,9 @@ class Raft extends EventEmitter {
     // Broadcast the voting request to all connected rafts in your private
     // cluster.
     //
-    var packet = raft.packet('vote')
-      , i = 0;
+    const packet = await raft.packet('vote')
 
-    raft.message(Raft.FOLLOWER, raft.packet('vote'));
+    raft.message(Raft.FOLLOWER, packet);
 
     //
     // Set the election timeout. This gives the rafts some time to reach
@@ -690,12 +722,13 @@ class Raft extends EventEmitter {
   /**
    * Wrap the outgoing messages in an object with additional required data.
    *
+   * @async
    * @param {String} type Message type we're trying to send.
    * @param {Mixed} data Data to be transfered.
-   * @returns {Object} Packet.
+   * @returns {Promise<Object>} Packet.
    * @private
    */
-  packet(type, data) {
+  async packet(type, data) {
     var raft = this
       , wrapped = {
         state:   raft.state,    // Are we're a leader, candidate or follower.
@@ -709,13 +742,32 @@ class Raft extends EventEmitter {
     // If we have logging and state replication enabled we also need to send this
     // additional data so we can use it determine the state of this raft.
     //
-    // @TODO point to index of last commit entry.
-    // @TODO point to term of last commit entry.
-    //
-    if (raft.log) wrapped.last = { term: raft.term, index: raft.log.index };
+    if (raft.log) wrapped.last = await raft.log.getLastInfo();
     if (arguments.length === 2) wrapped.data = data;
 
     return wrapped;
+  }
+
+  /**
+   * appendPacket - Send append message with entry and using the previous entry as the last.index and last.term
+   *
+   * @param {Entry} entry Entry to send as data
+   *
+   * @return {Promise<object>} Description
+   * @private
+   */
+  async appendPacket (entry) {
+    const raft = this;
+    const last = await raft.log.getEntryInfoBefore(entry);
+    return{
+        state:   raft.state,    // Are we're a leader, candidate or follower.
+        term:    raft.term,     // Our current term so we can find mis matches.
+        address: raft.address,  // Address of the sender.
+        type:    'append',      // Append message type .
+        leader:  raft.leader,   // Who is our leader.
+        data: [entry], // The command to send to the other nodes
+        last,
+    };
   }
 
   /**
@@ -760,7 +812,8 @@ class Raft extends EventEmitter {
   join(address, write) {
     var raft = this;
 
-    if ('function' === raft.type(address)) {
+    // can be function or asyncfunction
+    if (/function/.test(raft.type(address))) {
       write = address; address = null;
     }
 
@@ -841,6 +894,45 @@ class Raft extends EventEmitter {
     raft.timers = raft.log = raft.Log = raft.beat = raft.election = null;
 
     return true;
+  }
+
+  /**
+   * Raft §5.3:
+   * command - Saves command to log and replicates to followers
+   *
+   * @param {type} command Json command to be stored in the log
+   *
+   * @return {Promise<void>} Description
+   */
+  async command(command) {
+    let raft = this;
+
+    if(raft.state !== Raft.LEADER) {
+      return fn({
+        message: 'NOTLEADER',
+        leaderAddress: raft.leader
+      });
+    }
+
+    // about to send an append so don't send a heart beat
+    // raft.heartbeat(raft.beat);
+    const entry = await raft.log.saveCommand(command, raft.term);
+    const appendPacket = await raft.appendPacket(entry);
+    raft.message(Raft.FOLLOWER, appendPacket);
+  }
+
+  /**
+   * commitEntries - Commites entries in log and emits commited entries
+   *
+   * @param {Entry[]} entries Entries to commit
+   *
+   * @return {Promise<void>}
+   */
+  async commitEntries (entries) {
+    entries.forEach(async (entry) => {
+      await this.log.commit(entry.index)
+      this.emit('commit', entry.command);
+    });
   }
 }
 
