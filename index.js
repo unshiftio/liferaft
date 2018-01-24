@@ -102,7 +102,7 @@ class Raft extends EventEmitter {
     // When a server starts, it's always started as Follower and it will remain in
     // this state until receive a message from a Leader or Candidate.
     //
-    raft.state = options.state || Raft.FOLLOWER;    // Our current state.
+    raft.state = options.state || Raft.OFFLINE;     // Our current state.
     raft.leader = '';                               // Leader in our cluster.
     raft.term = 0;                                  // Our current term.
 
@@ -347,7 +347,7 @@ class Raft extends EventEmitter {
      * Start listening listening for heartbeats when implementors are also ready
      * with setting up their code.
      *
-     * @api private
+     * @private
      */
     function initialize(err) {
       if (err) return raft.emit('error', err);
@@ -857,11 +857,12 @@ class Raft extends EventEmitter {
  * - CANDIDATE: We want to be promoted to leader.
  * - FOLLOWER:  We're just following a leader.
  * - CHILD:     A node that has been added using JOIN.
+ * - OFFLINE:   Newly created, we're booting up.
  *
  * @type {Number}
  * @private
  */
-Raft.states = 'STOPPED,LEADER,CANDIDATE,FOLLOWER,CHILD'.split(',');
+Raft.states = 'STOPPED,LEADER,CANDIDATE,FOLLOWER,CHILD,OFFLINE'.split(',');
 for (var s = 0; s < Raft.states.length; s++) {
   Raft[Raft.states[s]] = s;
 }
