@@ -32,5 +32,4 @@ node_modules
 *.iml
 
 # Compiled source
-lib
-.DS_Store
+!lib

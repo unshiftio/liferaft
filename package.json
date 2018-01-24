@@ -3,9 +3,12 @@
   "version": "0.1.1",
   "description": "Consensus protocol based on raft, it will one day save your live.",
   "main": "index.js",
+  "browser": "./lib/",
   "scripts": {
     "test": "mocha test.js",
-    "test-travis": "nyc --reporter=html --reporter=text npm test"
+    "test-travis": "nyc --reporter=html --reporter=text npm test",
+    "prepublish": "npm run build",
+    "build": "babel ./index.js -d ./lib"
   },
   "repository": {
     "type": "git",
@@ -33,10 +36,19 @@
     "tick-tock": "1.0.x"
   },
   "devDependencies": {
+    "@babel/core": "^7.0.0-beta.38",
+    "@babel/preset-env": "^7.0.0-beta.38",
+    "@babel/register": "^7.0.0-beta.38",
+    "@babel/cli": "^7.0.0-beta.38",
     "assume": "1.5.x",
     "diagnostics": "1.1.x",
     "mocha": "4.0.x",
     "nyc": "^11.3.0",
     "pre-commit": "1.2.x"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-env"
+    ]
   }
 }
