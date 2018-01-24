@@ -377,7 +377,7 @@ describe('liferaft', function () {
 
     it('updates the state and emits a change', function (next) {
       raft.once('state change', function (currently, previously) {
-        assume(previously).equals(Raft.FOLLOWER);
+        assume(previously).equals(Raft.OFFLINE);
         assume(raft.state).equals(Raft.LEADER);
         assume(currently).equals(raft.state);
 
@@ -489,7 +489,7 @@ describe('liferaft', function () {
       assume(obj).is.a('object');
 
       assume(obj.state).is.a('number');
-      assume(obj.state).equals(Raft.FOLLOWER);
+      assume(obj.state).equals(Raft.OFFLINE);
 
       assume(obj.term).is.a('number');
       assume(obj.term).equals(raft.term);
