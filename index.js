@@ -1,9 +1,9 @@
-import EventEmitter from 'eventemitter3';
-import modification from 'modification';
-import Tick from 'tick-tock';
-import ms from 'millisecond';
-import one from 'one-time';
-import emits from 'emits';
+const EventEmitter = require('eventemitter3');
+const modification = require('modification');
+const Tick = require('tick-tock');
+const ms = require('millisecond');
+const one = require('one-time');
+const emits = require('emits');
 
 /**
  * Generate a somewhat unique UUID.
@@ -64,7 +64,7 @@ function nope() {}
  * @param {Object} options Raft configuration.
  * @public
  */
-export default class Raft extends EventEmitter {
+class Raft extends EventEmitter {
   constructor(address, options = {}) {
     super();
 
@@ -865,3 +865,5 @@ Raft.states = 'STOPPED,LEADER,CANDIDATE,FOLLOWER,CHILD'.split(',');
 for (var s = 0; s < Raft.states.length; s++) {
   Raft[Raft.states[s]] = s;
 }
+
+module.exports = Raft;

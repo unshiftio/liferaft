@@ -23,7 +23,7 @@
   "dependencies": {
     "argh": "0.1.x",
     "axon": "2.0.x",
-    "diagnostics": "0.0.x",
-    "nanomsg": "0.2.x"
+    "diagnostics": "1.1.x",
+    "nanomsg": "4.0.x"
   }
 }

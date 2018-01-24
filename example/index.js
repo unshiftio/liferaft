@@ -1,9 +1,8 @@
-'use strict';
-
-var debug = require('diagnostics')('raft')
+const debug = require('diagnostics')('raft')
   , argv = require('argh').argv
-  , LifeRaft = require('../')
-  , msg;
+  , LifeRaft = require('../');
+
+let msg;
 
 if (argv.queue) msg = require(argv.queue);
 else msg = require('axon');
@@ -12,14 +11,7 @@ else msg = require('axon');
 // We're going to create own custom Raft instance which is powered by axon for
 // communication purposes. But you can also use things like HTTP, OMQ etc.
 //
-var MsgRaft = LifeRaft.extend({
-  /**
-   * Reference our socket.
-   *
-   * @type {Msg}
-   * @private
-   */
-  socket: null,
+class MsgRaft extends LifeRaft {
 
   /**
    * Initialized, start connecting all the things.
@@ -27,23 +19,20 @@ var MsgRaft = LifeRaft.extend({
    * @param {Object} options Options.
    * @api private
    */
-  initialize: function initialize(options) {
-    var raft = this
-      , socket;
+  initialize (options) {
+    debug('initializing reply socket on port %s', this.address);
 
-    debug('initializing reply socket on port %s', raft.address);
+    const socket = this.socket = msg.socket('rep');
 
-    socket = raft.socket = msg.socket('rep');
-
-    socket.bind(raft.address);
-    socket.on('message', function (data, fn) {
-      raft.emit('data', data, fn);
+    socket.bind(this.address);
+    socket.on('message', (data, fn) => {
+      this.emit('data', data, fn);
     });
 
-    socket.on('error', function err() {
-      debug('failed to initialize on port: ', raft.address);
+    socket.on('error', () => {
+      debug('failed to initialize on port: ', this.address);
     });
-  },
+  }
 
   /**
    * The message to write.
@@ -52,32 +41,29 @@ var MsgRaft = LifeRaft.extend({
    * @param {Function} fn Completion callback.
    * @api private
    */
-  write: function write(packet, fn) {
-    var raft = this
-      , socket = raft.socket;
+  write (packet, fn) {
+    if (!this.socket) {
+      this.socket = msg.socket('req');
 
-    if (!socket) {
-      socket = raft.socket = msg.socket('req');
-
-      socket.connect(raft.address);
-      socket.on('error', function err() {
-        console.error('failed to write to: ', raft.address);
+      this.socket.connect(this.address);
+      this.socket.on('error', function err() {
+        console.error('failed to write to: ', this.address);
       });
     }
 
-    debug('writing packet to socket on port %s', raft.address);
-    socket.send(packet, function (data) {
+    debug('writing packet to socket on port %s', this.address);
+    this.socket.send(packet, (data) => {
       fn(undefined, data);
     });
   }
-});
+}
 
 //
 // We're going to start with a static list of servers. A minimum cluster size is
 // 4 as that only requires majority of 3 servers to have a new leader to be
 // assigned. This allows the failure of one single server.
 //
-var ports = [
+const ports = [
   8081, 8082,
   8083, 8084,
   8085, 8086
@@ -92,7 +78,7 @@ var port = +argv.port || ports[0];
 // Now that we have all our variables we can safely start up our server with our
 // assigned port number.
 //
-var raft = new MsgRaft('tcp://127.0.0.1:'+ port, {
+const raft = new MsgRaft('tcp://127.0.0.1:'+ port, {
   'election min': 2000,
   'election max': 5000,
   'heartbeat': 1000
@@ -125,7 +111,7 @@ raft.on('candidate', function () {
 //
 // Join in other nodes so they start searching for each other.
 //
-ports.forEach(function join(nr) {
+ports.forEach((nr) => {
   if (!nr || port === nr) return;
 
   raft.join('tcp://127.0.0.1:'+ nr);
