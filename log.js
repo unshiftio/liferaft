@@ -1,120 +1,349 @@
-const immediate = require('immediate');
+const levelup = require('levelup');
+const encode = require('encoding-down');
 
 /**
- * The representation of the log of a single node.
- *
- * Options:
- *
- * - `engine` The storage engine that should be used.
- *
- * @constructor
- * @param {Node} node Instance of a node.
- * @param {Object} options Optional configuration.
- * @api public
+ * @typedef Entry
+ * @property {number} index the key for the entry
+ * @property {number} term the term that the entry was saved in
+ * @property {boolean} Committed if the entry has been committed
+ * @property {array}  responses number of followers that have saved the log entry
+ * @property {object}  command The command to be used in the raft state machine
  */
+
 class Log {
-  constructor(node, options) {
+
+  /**
+   * @class
+   * @param {object} node    The raft node using this log
+   * @param {object} Options         Options object
+   * @param {object}   Options.[adapter= require('leveldown')] Leveldown adapter, defaults to leveldown
+   * @param {string}   Options.[path='./']    Path to save the log db to
+   *
+   * @return {Log}
+   */
+  constructor (node, {adapter = require('leveldown'), path = ''}) {
     this.node = node;
-    this.engine = options.engine || 'memory';
-
-    //
-    // Remark: So we want to use something like leveldb here with a particular engine but
-    // for now lets just use a silly little array
-    // The following would all be stored in a leveldb database. Entries would be
-    // its own namespaced key set for easy stream reading and the other values
-    // would be stored at their particular key for proper persistence and
-    // fetching. These could be used as a cache like thing as well if we wanted
-    // faster lookups by default.
-    //
-    this.commitIndex = 0;
-    this.lastApplied = 0;
-    this.startIndex = 0;
-    this.startTerm = 0;
-    this.entries = [];
+    this.committedIndex = 0;
+    this.db = levelup(encode(adapter(path), { valueEncoding: 'json', keyEncoding: 'number'}));
   }
 
   /**
-   * Commit a log entry
+   * saveCommand - Saves a command to the log
+   * Initially the command is uncommitted. Once a majority
+   * of follower nodes have saved the log entry it will be
+   * committed.
    *
-   * @param {Object} data Data we receive from ourselves or from LEADER
-   * @param {function} fn function
-   * @public
-   */
-  commit(data, fn) {
-    var entry = this.entry(data);
+   * A follow node will also use this method to save a received command to
+   * its log
 
-    if (entry) this.append(entry);
-    return immediate(fn.bind(null, null, !!entry));
+   * @async
+   * @param {object} command A json object to save to the log
+   * @param {number} term    Term to save with the log entry
+   * @param {number} [index] Index to save the entry with. This is used by the followers
+   *
+   * @return {Promise<entry>} Description
+   */
+  async saveCommand (command, term, index) {
+
+    if (!index) {
+      const {
+        index: lastIndex,
+      } = await this.getLastInfo();
+
+      index = lastIndex + 1;
+    }
+
+    const entry = {
+      term: term,
+      index,
+      committed: false,
+      responses: [{
+        address: this.node.address, // start with vote from leader
+        ack: true
+      }],
+      command,
+    }
+
+    await this.put(entry);
+    return entry;
   }
 
   /**
-   * Append a message to the log.
+   * put - Save entry to database using the index as the key
+   * @async
+   * @param {Entry} entry entry to save
    *
-   * @param {Mixed} entry Entry that needs to be appended to the log.
-   * @public
+   * @return {Promise<void>} Resolves once entry is saved
    */
-  append(entry) {
-    this.entries.push(entry);
+  put (entry) {
+    return this.db.put(entry.index, entry);
   }
 
   /**
-   * Return the last entry (this may be async in the future)
+   * getEntriesAfter - Get all the entries after a specific index
    *
-   * @returns {Object}
-   * @public
+   * @param {number} index Index that entries must be greater than
+   *
+   * @return {Promise<Entry[]>} returns all entries
    */
-  last() {
-    var lastentry = this.entries[this.entries.length - 1];
-    if (lastentry) return lastentry;
+  getEntriesAfter(index) {
+    const entries = [];
+    return new Promise((resolve, reject) => {
+      this.db.createReadStream({gt: index})
+        .on('data', data => {
+          entries.push(data.value);
+        })
+        .on('error', err => {
+          reject(err)
+        })
+        .on('end', () => {
+          resolve(entries);
+        })
+    });
+
+  }
+
+  /**
+   * removeEntriesAfter - Removes all entries after a given index
+   *
+   * @async
+   * @param {Number} index Index to use to find all entries after
+   *
+   * @return {Promise<void>} Returns once all antries are removed
+   */
+  async removeEntriesAfter (index) {
+    const entries = await this.getEntriesAfter(index)
+    return Promise.all(entries.map(entry => {
+      return this.db.del(entry.index);
+    }));
+  }
+
+  /**
+   * has - Checks if entry exists at index
+   *
+   * @async
+   * @param {number} index Index position to check if entry exists
+   *
+   * @return {boolean} Boolean on whether entry exists at index
+   */
+  async has (index) {
+    try {
+      const entry = await this.db.get(index);
+      return true
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /**
+   * get - Gets an entry at the specified index position
+   *
+   * @param {type} index Index position of entry
+   *
+   * @return {Promise<Entry>} Promise of found entry returns NotFoundError if does not exist
+   */
+  get (index) {
+    return this.db.get(index);
+  }
+
+  /**
+   * getLastInfo - Returns index, term of the last entry in the long along with the committedIndex
+   * @async
+   * @return {Promise<Object>} Last entries index, term and committedIndex
+   */
+  async getLastInfo () {
+    const {
+      index,
+      term
+    } = await this.getLastEntry();
 
     return {
-      index: this.startIndex,
-      term: this.startTerm
+      index,
+      term,
+      committedIndex: this.committedIndex
     };
   }
 
   /**
-   * Create a log entry that we will append with correct form and attrs
+   * getLastEntry - Returns last entry in the log
    *
-   * @param {object} Data to compute to a proper entry
-   * @public
+   * @return {Promise<Entry>} returns {index: 0, term: node.term} if there are no entries in the log
    */
-  entry(data) {
-    //
-    // type of entry, (data/command, or something related to raft itself)
-    //
-    var type = data.type
-      , command = data.command
-    //
-    // Remark: Hmm this may have to be async if we are fetching everything from a db,
-    // lets just keep it in memory for now because we may just preload into cache
-    // on startup?
-    //
-      , index = this.last().index + 1;
-    //
-    // Remark: How do we want to store function executions or particular actions
-    // to be replayed in case necessary?
-    //
+  getLastEntry () {
+    return new Promise((resolve, reject) => {
+      let hasResolved = false;
+      this.db.createReadStream({reverse: true, limit: 1})
+        .on('data', data => {
+          hasResolved = true;
+          resolve(data.value)
+        })
+        .on('error', err => {
+          reject(err)
+        })
+        .on('end', () => {
+          if (hasResolved) {
+            return;
+          }
+
+          // If there is no items in db
+          // then we return index 0.
+          resolve({
+            index: 0,
+            term: this.node.term
+          });
+        })
+    });
+  }
+
+  /**
+   * getEntryInfoBefore - Gets the index and term of the previous entry along with the log's committedIndex
+   * If there is no item before it returns {index: 0}
+   *
+   *
+   * @async
+   * @param {Entry} entry
+   *
+   * @return {Promise<object>} {index, term, committedIndex}
+   */
+  async getEntryInfoBefore (entry) {
+    const {index, term} = await this.getEntryBefore(entry);
+
     return {
-      command: command,
-      index: index,
-      term: this.node.term,
-      type: type
+      index,
+      term,
+      committedIndex: this.committedIndex
     };
   }
 
   /**
-   * The raft instance we're attached to is closing.
+   * getEntryBefore - Get entry before the specified entry
+   * If there is no item before it returns {index: 0}
    *
-   * @returns {Boolean} First time shutdown.
-   * @private
+   * @async
+   * @param {Entry} entry
+   *
+   * @return {Promise<Entry>}
    */
-  end() {
+  getEntryBefore (entry) {
+    const defaultInfo = {
+      index: 0,
+      term: this.node.term
+    };
+
+    return new Promise((resolve, reject) => {
+      let hasResolved = false;
+      this.db.createReadStream({
+        reverse: true,
+        limit: 1,
+        lt: entry.index
+      })
+      .on('data', (data) => {
+        hasResolved = true;
+        resolve(data.value);
+      })
+      .on('error', (err) => {
+        hasResolved = true;
+        reject(err);
+      })
+      .on('end', () => {
+        if (!hasResolved) {
+          // Returns empty index if there is no items
+          // before entry or log is empty
+          resolve(defaultInfo);
+        }
+      });
+    });
+  }
+
+  /**
+   * commandAck - acknowledges a follow with address has stored entry at index
+   * This is used to determine if a quorom has been met for a log entry and
+   * if enough followers have stored it so that it can be committed
+   *
+   * @async
+   * @param {number} index   Index of entry that follow has stored
+   * @param {string} address Address of follower that has stored log
+   *
+   * @return {Promise<Entry>}
+   */
+  async commandAck (index, address) {
+    let entry;
+    try {
+      entry = await this.get(index);
+    } catch (err) {
+      return {
+        responses: []
+      }
+    }
+
+    const entryIndex = await entry.responses.findIndex(resp => resp.address === address);
+    // node hasn't voted yet. Add response
+    if (entryIndex === -1) {
+      entry.responses.push({
+        address,
+        ack: true
+      });
+    }
+
+    await this.put(entry);
+
+    return entry;
+  }
+
+  /**
+   * commit - Set the entry to committed
+   *
+   * @async
+   * @param {number} Index index
+   *
+   * @return {Promise<entry>}
+   */
+  async commit (index) {
+    const entry = await this.db.get(index);
+    entry.committed = true;
+    this.committedIndex = entry.index;
+    return this.put(entry);
+  }
+
+  /**
+   * getUncommittedEntriesUpToIndex - Returns all entries before index that have not been committed yet
+   *
+   * @param {number} index Index value to find all entries up to
+   *
+   * @return {Promise<Entry[]}
+   */
+  getUncommittedEntriesUpToIndex (index) {
+    return new Promise((resolve, reject) => {
+      let hasResolved = false;
+      const entries = [];
+      this.db.createReadStream({
+        gt: this.committedIndex,
+        lte: index
+      })
+        .on('data', data => {
+          if (!data.value.committed) {
+            entries.push(data.value);
+          }
+        })
+        .on('error', err => {
+          reject(err)
+        })
+        .on('end', () => {
+          resolve(entries);
+        });
+    });
+  }
+
+  /**
+   * end - Log end
+   * Called when the node is shutting down
+   *
+   * @return {boolean}
+   */
+  end () {
+    this.db.close();
     return true;
   }
-}
+};
 
-//
-// Expose the log module.
-//
 module.exports = Log;

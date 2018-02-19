@@ -2,7 +2,7 @@
 
 [![Made by unshift](https://img.shields.io/badge/made%20by-unshift-00ffcc.svg?style=flat-square)](http://unshift.io)[![Version npm](http://img.shields.io/npm/v/liferaft.svg?style=flat-square)](http://browsenpm.org/package/liferaft)[![Build Status](http://img.shields.io/travis/unshiftio/liferaft/master.svg?style=flat-square)](https://travis-ci.org/unshiftio/liferaft)[![Dependencies](https://img.shields.io/david/unshiftio/liferaft.svg?style=flat-square)](https://david-dm.org/unshiftio/liferaft)[![Coverage Status](http://img.shields.io/coveralls/unshiftio/liferaft/master.svg?style=flat-square)](https://coveralls.io/r/unshiftio/liferaft?branch=master)[![IRC channel](http://img.shields.io/badge/IRC-irc.freenode.net%23unshift-00a8ff.svg?style=flat-square)](http://webchat.freenode.net/?channels=unshift)
 
-`liferaft` is an JavaScript implementation of the [Raft] consensus algorithm. 
+`liferaft` is an JavaScript implementation of the [Raft] consensus algorithm.
 
 ## Installation
 
@@ -31,6 +31,8 @@ npm install --save liferaft
   - [LifeRaft#leave()](#liferaftleaveaddress)
   - [LifeRaft#promote()](#liferaftpromote)
   - [LifeRaft#end()](#liferaftend)
+  - [LifeRaft#saveCommand()](#liferaftsavecommand)
+- [Log Replication](#logreplication)
 - [Extending](#extending)
 - [Transports](#transports)
 - [License](#license)
@@ -75,7 +77,7 @@ of your Raft:
 - `threshold` Threshold for when the heartbeat and latency is to close to the
   minimum election timeout.
 - `Log`: An Log compatible constructor we which use for state and data
-  replication. 
+  replication.
 
 The timeout values can be configured with either a number which represents the
 time milliseconds or a human readable time string such as `10 ms`. The heartbeat
@@ -86,7 +88,7 @@ reach a consensus about the master election process. If this times out, we will
 start another re-election.
 
 ```js
-var raft = new Raft({ 
+var raft = new Raft({
   'address': 'tcp://localhost:8089',
   'election min': '200 millisecond',
   'election max': '1 second'
@@ -121,6 +123,7 @@ Event               | Description
 `candidate`         | Our state changed to candidate.
 `stopped`           | Our state changed to stopped.
 `heartbeat`         | The leader is about to send a heartbeat message.
+`commit`            | A command has been saved to the majority of node's logs
 
 ---
 
@@ -327,6 +330,23 @@ raft.on('end', function () {
 raft.end();
 ```
 
+###LifeRaft#saveCommand(command)
+
+Save a json command to the log. The command will be added to the log and then
+replicated to all the follower nodes. Once the majority of nodes have received
+and stored the command. A `commit` event will be triggered so that the
+command can be used.
+
+```js
+raft.saveCommand({name: 'Jimi', surname: 'Hendrix'});
+
+raft.on('commit', function (command) {
+  console.log(command.name, command.surname);
+});
+
+```
+
+
 ## Extending
 
 LifeRaft uses the same pattern as Backbone.js to extend it's prototypes. It
@@ -344,6 +364,25 @@ var LifeBoat = LifeRaft.extend({
     return 'bar';
   }
 });
+```
+
+## Log Replication
+
+LifeRaft uses [Levelup](https://github.com/Level/levelup) for storing the log
+that is replicated to each node. Log replication is optional and so the log
+constructor needs to be included in the options when creating a raft instance.
+You can use any leveldown compatible database to store the log.
+LifeRaft will default to using leveldown. A unique path is required for
+each node's log.
+
+```js
+const Log = require('liferaft/log');
+
+const raft = new Raft({
+  adapter: require('leveldown'),
+  path: './db/log1'
+  });
+
 ```
 
 ## Transports
