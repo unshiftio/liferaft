@@ -31,7 +31,7 @@ npm install --save liferaft
   - [LifeRaft#leave()](#liferaftleaveaddress)
   - [LifeRaft#promote()](#liferaftpromote)
   - [LifeRaft#end()](#liferaftend)
-  - [LifeRaft#saveCommand()](#liferaftsavecommand)
+  - [LifeRaft#ommand()](#liferaftcommand)
 - [Log Replication](#logreplication)
 - [Extending](#extending)
 - [Transports](#transports)
@@ -330,7 +330,7 @@ raft.on('end', function () {
 raft.end();
 ```
 
-###LifeRaft#saveCommand(command)
+### LifeRaft#command(command)
 
 Save a json command to the log. The command will be added to the log and then
 replicated to all the follower nodes. Once the majority of nodes have received
@@ -338,7 +338,7 @@ and stored the command. A `commit` event will be triggered so that the
 command can be used.
 
 ```js
-raft.saveCommand({name: 'Jimi', surname: 'Hendrix'});
+raft.command({name: 'Jimi', surname: 'Hendrix'});
 
 raft.on('commit', function (command) {
   console.log(command.name, command.surname);
