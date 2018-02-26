@@ -31,7 +31,7 @@ npm install --save liferaft
   - [LifeRaft#leave()](#liferaftleaveaddress)
   - [LifeRaft#promote()](#liferaftpromote)
   - [LifeRaft#end()](#liferaftend)
-  - [LifeRaft#ommand()](#liferaftcommand)
+  - [LifeRaft#command()](#liferaftcommand)
 - [Log Replication](#logreplication)
 - [Extending](#extending)
 - [Transports](#transports)
