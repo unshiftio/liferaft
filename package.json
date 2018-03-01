@@ -8,7 +8,7 @@
     "test": "mocha test/**.js",
     "test-travis": "nyc --reporter=html --reporter=text npm test",
     "prepublish": "npm run build",
-    "build": "babel ./index.js -d ./lib"
+    "build": "babel ./index.js ./log.js -d ./lib"
   },
   "repository": {
     "type": "git",
