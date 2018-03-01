@@ -220,7 +220,8 @@ class Raft extends EventEmitter {
           // ours.
           //
           if (raft.log) {
-            const {index, term} = await raft.log.getLastInfo();
+            const { index, term } = await raft.log.getLastInfo();
+
             if (index > packet.last.index && term > packet.last.term) {
               raft.emit('vote', packet, false);
 
@@ -297,20 +298,18 @@ class Raft extends EventEmitter {
           // if we do remove any bad uncommitted entries following it
           if (packet.last.index !== index && packet.last.index !== 0) {
             const hasIndex = await raft.log.has(packet.last.index);
-            if (hasIndex) {
-              raft.log.removeEntriesAfter(packet.last.index);
-            } else {
-              raft.message(Raft.LEADER, await raft.packet('append fail', {
-                term: packet.last.term,
-                index: packet.last.index
-              }));
-              return;
-            }
+
+            if (hasIndex) raft.log.removeEntriesAfter(packet.last.index);
+            else return raft.message(Raft.LEADER, await raft.packet('append fail', {
+              term: packet.last.term,
+              index: packet.last.index
+            }));
           }
 
           if (packet.data) {
             const entry = packet.data[0];
             await raft.log.saveCommand(entry.command, entry.term, entry.index);
+
             raft.message(Raft.LEADER, await raft.packet('append ack', {
               term: entry.term,
               index: entry.index
@@ -925,7 +924,6 @@ class Raft extends EventEmitter {
    * commitEntries - Commites entries in log and emits commited entries
    *
    * @param {Entry[]} entries Entries to commit
-   *
    * @return {Promise<void>}
    */
   async commitEntries (entries) {
