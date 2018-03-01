@@ -1,5 +1,5 @@
-const levelup = require('levelup');
 const encode = require('encoding-down');
+const levelup = require('levelup');
 
 /**
  * @typedef Entry
@@ -9,16 +9,13 @@ const encode = require('encoding-down');
  * @property {array}  responses number of followers that have saved the log entry
  * @property {object}  command The command to be used in the raft state machine
  */
-
 class Log {
-
   /**
    * @class
    * @param {object} node    The raft node using this log
    * @param {object} Options         Options object
    * @param {object}   Options.[adapter= require('leveldown')] Leveldown adapter, defaults to leveldown
    * @param {string}   Options.[path='./']    Path to save the log db to
-   *
    * @return {Log}
    */
   constructor (node, {adapter = require('leveldown'), path = ''}) {
@@ -35,12 +32,11 @@ class Log {
    *
    * A follow node will also use this method to save a received command to
    * its log
-
+   *
    * @async
    * @param {object} command A json object to save to the log
    * @param {number} term    Term to save with the log entry
    * @param {number} [index] Index to save the entry with. This is used by the followers
-   *
    * @return {Promise<entry>} Description
    */
   async saveCommand (command, term, index) {
@@ -70,10 +66,11 @@ class Log {
 
   /**
    * put - Save entry to database using the index as the key
+   *
    * @async
    * @param {Entry} entry entry to save
-   *
    * @return {Promise<void>} Resolves once entry is saved
+   * @public
    */
   put (entry) {
     return this.db.put(entry.index, entry);
@@ -83,8 +80,8 @@ class Log {
    * getEntriesAfter - Get all the entries after a specific index
    *
    * @param {number} index Index that entries must be greater than
-   *
    * @return {Promise<Entry[]>} returns all entries
+   * @public
    */
   getEntriesAfter(index) {
     const entries = [];
@@ -108,8 +105,8 @@ class Log {
    *
    * @async
    * @param {Number} index Index to use to find all entries after
-   *
    * @return {Promise<void>} Returns once all antries are removed
+   * @public
    */
   async removeEntriesAfter (index) {
     const entries = await this.getEntriesAfter(index)
@@ -123,8 +120,8 @@ class Log {
    *
    * @async
    * @param {number} index Index position to check if entry exists
-   *
    * @return {boolean} Boolean on whether entry exists at index
+   * @public
    */
   async has (index) {
     try {
@@ -139,23 +136,22 @@ class Log {
    * get - Gets an entry at the specified index position
    *
    * @param {type} index Index position of entry
-   *
    * @return {Promise<Entry>} Promise of found entry returns NotFoundError if does not exist
+   * @public
    */
   get (index) {
     return this.db.get(index);
   }
 
   /**
-   * getLastInfo - Returns index, term of the last entry in the long along with the committedIndex
+   * getLastInfo - Returns index, term of the last entry in the long along with
+   * the committedIndex
+   *
    * @async
    * @return {Promise<Object>} Last entries index, term and committedIndex
    */
   async getLastInfo () {
-    const {
-      index,
-      term
-    } = await this.getLastEntry();
+    const { index, term } = await this.getLastEntry();
 
     return {
       index,
@@ -172,26 +168,27 @@ class Log {
   getLastEntry () {
     return new Promise((resolve, reject) => {
       let hasResolved = false;
-      this.db.createReadStream({reverse: true, limit: 1})
-        .on('data', data => {
-          hasResolved = true;
-          resolve(data.value)
-        })
-        .on('error', err => {
-          reject(err)
-        })
-        .on('end', () => {
-          if (hasResolved) {
-            return;
-          }
 
-          // If there is no items in db
-          // then we return index 0.
-          resolve({
-            index: 0,
-            term: this.node.term
-          });
-        })
+      this.db.createReadStream({reverse: true, limit: 1})
+      .on('data', data => {
+        hasResolved = true;
+        resolve(data.value)
+      })
+      .on('error', err => {
+        reject(err)
+      })
+      .on('end', () => {
+        if (hasResolved) {
+          return;
+        }
+
+        // If there is no items in db
+        // then we return index 0.
+        resolve({
+          index: 0,
+          term: this.node.term
+        });
+      })
     });
   }
 
@@ -202,7 +199,6 @@ class Log {
    *
    * @async
    * @param {Entry} entry
-   *
    * @return {Promise<object>} {index, term, committedIndex}
    */
   async getEntryInfoBefore (entry) {
@@ -232,6 +228,7 @@ class Log {
 
     return new Promise((resolve, reject) => {
       let hasResolved = false;
+
       this.db.createReadStream({
         reverse: true,
         limit: 1,
@@ -263,7 +260,6 @@ class Log {
    * @async
    * @param {number} index   Index of entry that follow has stored
    * @param {string} address Address of follower that has stored log
-   *
    * @return {Promise<Entry>}
    */
   async commandAck (index, address) {
@@ -300,8 +296,10 @@ class Log {
    */
   async commit (index) {
     const entry = await this.db.get(index);
+
     entry.committed = true;
     this.committedIndex = entry.index;
+
     return this.put(entry);
   }
 
@@ -309,28 +307,29 @@ class Log {
    * getUncommittedEntriesUpToIndex - Returns all entries before index that have not been committed yet
    *
    * @param {number} index Index value to find all entries up to
-   *
    * @return {Promise<Entry[]}
+   * @private
    */
   getUncommittedEntriesUpToIndex (index) {
     return new Promise((resolve, reject) => {
       let hasResolved = false;
       const entries = [];
+
       this.db.createReadStream({
         gt: this.committedIndex,
         lte: index
       })
-        .on('data', data => {
-          if (!data.value.committed) {
-            entries.push(data.value);
-          }
-        })
-        .on('error', err => {
-          reject(err)
-        })
-        .on('end', () => {
-          resolve(entries);
-        });
+      .on('data', data => {
+        if (!data.value.committed) {
+          entries.push(data.value);
+        }
+      })
+      .on('error', err => {
+        reject(err)
+      })
+      .on('end', () => {
+        resolve(entries);
+      });
     });
   }
 
@@ -338,7 +337,8 @@ class Log {
    * end - Log end
    * Called when the node is shutting down
    *
-   * @return {boolean}
+   * @return {boolean} Successful close.
+   * @private
    */
   end () {
     this.db.close();
