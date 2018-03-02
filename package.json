@@ -5,7 +5,9 @@
   "main": "index.js",
   "browser": "./lib/",
   "scripts": {
-    "test": "mocha test/**.js",
+    "test": "npm run test-memdown && npm run test-leveldown",
+    "test-leveldown": "ADAPTER=leveldown mocha test/**.js",
+    "test-memdown": "ADAPTER=memdown mocha test/**.js",
     "test-travis": "nyc --reporter=html --reporter=text npm test",
     "prepublish": "npm run build",
     "build": "babel ./index.js ./log.js -d ./lib"
@@ -46,9 +48,11 @@
     "assume": "1.5.x",
     "diagnostics": "1.1.x",
     "memdown": "^1.4.1",
+    "mkdirp": "^0.5.1",
     "mocha": "5.0.x",
     "nyc": "^11.3.0",
-    "pre-commit": "1.2.x"
+    "pre-commit": "1.2.x",
+    "rimraf": "^2.6.2"
   },
   "babel": {
     "presets": [

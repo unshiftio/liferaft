@@ -890,7 +890,7 @@ class Raft extends EventEmitter {
     raft.removeAllListeners();
 
     if (raft.log) raft.log.end();
-    raft.timers = raft.log = raft.Log = raft.beat = raft.election = null;
+    raft.timers = raft.Log = raft.beat = raft.election = null;
 
     return true;
   }

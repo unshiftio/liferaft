@@ -21,7 +21,7 @@ class Log {
   constructor (node, {adapter = require('leveldown'), path = ''}) {
     this.node = node;
     this.committedIndex = 0;
-    this.db = levelup(encode(adapter(path), { valueEncoding: 'json', keyEncoding: 'number'}));
+    this.db = levelup(encode(adapter(path), { valueEncoding: 'json', keyEncoding: 'binary'}));
   }
 
   /**
@@ -168,27 +168,23 @@ class Log {
   getLastEntry () {
     return new Promise((resolve, reject) => {
       let hasResolved = false;
+      let entry = {
+        index: 0,
+        term: this.node.term
+      };
 
       this.db.createReadStream({reverse: true, limit: 1})
-      .on('data', data => {
-        hasResolved = true;
-        resolve(data.value)
-      })
-      .on('error', err => {
-        reject(err)
-      })
-      .on('end', () => {
-        if (hasResolved) {
-          return;
-        }
-
-        // If there is no items in db
-        // then we return index 0.
-        resolve({
-          index: 0,
-          term: this.node.term
-        });
-      })
+        .on('data', data => {
+          hasResolved = true;
+          entry = data.value;
+        })
+        .on('error', err => {
+          hasResolved = true;
+          reject(err)
+        })
+        .on('end', () => {
+          resolve(entry);
+        })
     });
   }
 
@@ -225,6 +221,10 @@ class Log {
       index: 0,
       term: this.node.term
     };
+    // We know it is the first entry, so save the query time
+    if (entry.index === 1) {
+      return Promise.resolve(defaultInfo);
+    }
 
     return new Promise((resolve, reject) => {
       let hasResolved = false;
@@ -341,8 +341,7 @@ class Log {
    * @private
    */
   end () {
-    this.db.close();
-    return true;
+    return this.db.close();
   }
 };
 

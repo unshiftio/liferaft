@@ -2,6 +2,9 @@ const assume = require('assume');
 const Raft = require('../');
 const Log = require('../log');
 const net = require('net');
+const util = require('util');
+const rimraf = util.promisify(require('rimraf'));
+const mkdirp = util.promisify(require('mkdirp'));
 const debug = require('diagnostics')('cluster');
 const port = 8088;
 
@@ -22,9 +25,11 @@ describe('liferaft Log Replication', () => {
         socket.on('data', (buff) => {
           const data = JSON.parse(buff.toString());
 
-          debug(this.address +':packet#data', data);
           this.emit('data', data, (data) => {
-            debug(this.address +':packet#reply', data);
+            if (socket.destroyed) {
+              socket.end();
+              return;
+            }
             socket.write(JSON.stringify(data));
             socket.end();
           });
@@ -72,12 +77,24 @@ describe('liferaft Log Replication', () => {
 
   let node1, node2, node3;
 
+  beforeEach(async () => {
+    if (process.env.ADAPTER === 'leveldown') {
+      const leveldbPath = `${process.cwd()}/tmp`;
+      await rimraf(leveldbPath);
+      await mkdirp(leveldbPath);
+      node1 = new WoodenRaft({address: 8111, Log, path: './tmp/8111'});
+      node2 = new WoodenRaft({address: 8112, Log, path: './tmp/8112'});
+    } else {
+      node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
+      node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
+    }
+  });
+
   afterEach((next) => {
     const promises = [node3, node2, node1].map(node => {
       if (!node) {
         return Promise.resolve();
       }
-
       return new Promise((resolve) => {
         node.once('end', () => {
           resolve();
@@ -92,9 +109,7 @@ describe('liferaft Log Replication', () => {
     });
   });
 
-  it('Sends correct index with start log', async () => {
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
+  it('Sends correct index with start log', (next) => {
 
     node1.join(8112);
     node2.join(8111);
@@ -107,13 +122,11 @@ describe('liferaft Log Replication', () => {
       }
     });
 
-    return node1.promote();
+    node1.promote();
   });
 
   it('sends append to nodes with command', (next) => {
     const command1 = {first: 'command'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
 
@@ -137,8 +150,6 @@ describe('liferaft Log Replication', () => {
 
   it('commits command once a quorum has been reached', (next) => {
     const command1 = {first: 'command'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
 
@@ -156,8 +167,6 @@ describe('liferaft Log Replication', () => {
 
   it('does not commit command if same node ack', async () => {
     const command1 = {first: 'command'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.state = Raft.LEADER;
     await node1.command(command1);
 
@@ -168,8 +177,6 @@ describe('liferaft Log Replication', () => {
 
   it('follow commits command on next hearbeat', (next) => {
     const command1 = {first: 'command'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
 
@@ -191,8 +198,6 @@ describe('liferaft Log Replication', () => {
     const command1 = {first: 'command'};
     const command2 = {second: 'command2'};
     let commitCalledOnNode1 = false;
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
 
@@ -234,7 +239,7 @@ describe('liferaft Log Replication', () => {
   it('replicates log to node', (next) => {
     const command1 = {first: 'command'};
     const command2 = {second: 'command2'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
+
 
     // add log entries
     node1.log.put({
@@ -243,7 +248,7 @@ describe('liferaft Log Replication', () => {
       committed: true,
       responses: [{address: 8111, ack: true}, {address: 8000, ack: true}],
       command: command1,
-    });
+    })
 
     node1.log.put({
       term: node1.term,
@@ -255,7 +260,6 @@ describe('liferaft Log Replication', () => {
 
     node1.log.committedIndex = 2;
 
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
     node1.promote();
@@ -267,14 +271,13 @@ describe('liferaft Log Replication', () => {
         next();
       });
     });
+
   });
 
 
   it('Replicates log to new node', (next) => {
     const command1 = {first: 'command'};
     const command2 = {second: 'command2'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
     node1.join(8112);
     node2.join(8111);
 
@@ -285,7 +288,12 @@ describe('liferaft Log Replication', () => {
       node2.once('commit', (command) => {
         assume(command).deep.equals(command2);
 
-        node3 = new WoodenRaft({address: 8113, Log, adapter: require('memdown')});
+        if (process.env.ADAPTER === 'leveldown') {
+          node3 = new WoodenRaft({address: 8113, Log, path: './tmp/8113'});
+        } else {
+          node3 = new WoodenRaft({address: 8113, Log, adapter: require('memdown')});
+        }
+
         node3.join(8111);
         node3.join(8112);
 
@@ -316,8 +324,10 @@ describe('liferaft Log Replication', () => {
     const command2 = {second: 'command2'};
     const commandWrong1 = {wrong: 'command'};
     const commandWrong2 = {wrong: 'command2'};
-    node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
-    node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
+    // node1 = new WoodenRaft({address: 8111, Log, adapter: require('memdown')});
+    // node2 = new WoodenRaft({address: 8112, Log, adapter: require('memdown')});
+    // node1 = new WoodenRaft({address: 8111, Log, path: './tmp/8111'});
+    // node2 = new WoodenRaft({address: 8112, Log, path: './tmp/8112'});
 
     // add log entries
     node1.log.put({
