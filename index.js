@@ -907,10 +907,11 @@ class Raft extends EventEmitter {
     let raft = this;
 
     if(raft.state !== Raft.LEADER) {
-      return fn({
-        message: 'NOTLEADER',
-        leaderAddress: raft.leader
-      });
+      const err = new Error('NOTLEADER');
+
+      err.leaderAddress = raft.leader;
+
+      throw err;
     }
 
     // about to send an append so don't send a heart beat

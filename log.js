@@ -1,5 +1,15 @@
 const encode = require('encoding-down');
 const levelup = require('levelup');
+const PromiseQueue = require('promise-queue')
+
+const keyEncoding = {
+  decode: function (raw) {
+    return parseInt(raw);
+  },
+  encode: function (key) {
+    return key.toString(16).padStart(8, '0');
+  }
+};
 
 /**
  * @typedef Entry
@@ -21,7 +31,8 @@ class Log {
   constructor (node, {adapter = require('leveldown'), path = ''}) {
     this.node = node;
     this.committedIndex = 0;
-    this.db = levelup(encode(adapter(path), { valueEncoding: 'json', keyEncoding: 'binary'}));
+    this.db = levelup(encode(adapter(path), { valueEncoding: 'json', keyEncoding }));
+    this.commandAckQueue = new PromiseQueue(1, Infinity);
   }
 
   /**
@@ -263,27 +274,30 @@ class Log {
    * @return {Promise<Entry>}
    */
   async commandAck (index, address) {
-    let entry;
-    try {
-      entry = await this.get(index);
-    } catch (err) {
-      return {
-        responses: []
+    return this.commandAckQueue.add(async () => {
+      let entry;
+      try {
+        entry = await this.get(index);
+      } catch (err) {
+        return {
+          responses: []
+        }
       }
-    }
 
-    const entryIndex = await entry.responses.findIndex(resp => resp.address === address);
-    // node hasn't voted yet. Add response
-    if (entryIndex === -1) {
-      entry.responses.push({
-        address,
-        ack: true
-      });
-    }
+      const entryIndex = await entry.responses.findIndex(resp => resp.address === address);
 
-    await this.put(entry);
+      // node hasn't voted yet. Add response
+      if (entryIndex === -1) {
+        entry.responses.push({
+          address,
+          ack: true
+        });
+      }
 
-    return entry;
+      await this.put(entry);
+
+      return entry;
+    })
   }
 
   /**
