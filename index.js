@@ -102,9 +102,15 @@ class Raft extends EventEmitter {
     // When a server starts, it's always started as Follower and it will remain in
     // this state until receive a message from a Leader or Candidate.
     //
-    raft.state = options.state || Raft.FOLLOWER;    // Our current state.
-    raft.leader = '';                               // Leader in our cluster.
-    raft.term = 0;                                  // Our current term.
+
+    // Our current state.
+    raft.state = Number.isInteger(options.state) ? options.state : Raft.FOLLOWER;
+
+    // Leader in our cluster.
+    raft.leader = '';
+
+    // Our current term.
+    raft.term = 0;
 
     raft._initialize(options);
   }
@@ -163,6 +169,7 @@ class Raft extends EventEmitter {
       // rejected.
       //
       if (packet.term > raft.term) {
+        console.log('nice!')
         raft.change({
           leader: Raft.LEADER === packet.state ? packet.address : packet.leader || raft.leader,
           state: Raft.FOLLOWER,
