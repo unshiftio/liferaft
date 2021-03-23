@@ -169,7 +169,6 @@ class Raft extends EventEmitter {
       // rejected.
       //
       if (packet.term > raft.term) {
-        console.log('nice!')
         raft.change({
           leader: Raft.LEADER === packet.state ? packet.address : packet.leader || raft.leader,
           state: Raft.FOLLOWER,
